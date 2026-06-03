@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('path'); // Node module: helps with working with file paths.
 
 module.exports = {
     entry: './src/index.js',
