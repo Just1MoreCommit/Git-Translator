@@ -51,8 +51,33 @@
 
     <div id="body" class="flex flex-row min-h-screen">
 
-        <div id="left-col" class="w-64 bg-black border-r border-gray-700 p-4 sticky top-0 h-screen">
-            
+        <div id="left-col" class="w-64 bg-black border-r border-gray-700 pt-4 pl-4 pr-2 sticky top-0 h-screen">
+            <!-- this will contain the logo and the new analysis button -->
+             <div class="border-b border-gray-700 p-4 pb-8 flex flex-col gap-8 w-64">
+
+                <div class="flex flex-row">
+                    
+                    <img src="assets/Gitly.png" width="60" height="60">
+                    
+                    <div class="flex flex-col p-3">
+                        <p class="font-mono text-xs text-white">Gitly</p>
+                        <p class="font-mono text-xs text-white">V2.0.014</p>
+                    </div>
+                </div>
+
+                <button id="new-analysis" class="bg-white text-black p-3 pr-2 uppercase font-mono font-bold">new analysis</button>
+            </div>
+
+            <!----------------------------------------------------------------->
+
+            <!-- Further buttons -->
+
+            <div id="left-btns" class="flex flex-col">
+                <button id="Dashboard" class="bg-white text-black p-3 pr-2 uppercase font-mono font-bold mt-6">Dashboard</button>
+                <button id="Dashboard" class="bg-white text-black p-3 pr-2 uppercase font-mono font-bold mt-6">History</button>
+                <button id="Dashboard" class="bg-white text-black p-3 pr-2 uppercase font-mono font-bold mt-6">Branches</button>
+                <button id="Dashboard" class="bg-white text-black p-3 pr-2 uppercase font-mono font-bold mt-6">Commits</button>
+            </div>
 
         </div>
 
