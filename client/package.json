@@ -4,14 +4,21 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "webpack",  
-    "dev": "webpack --watch"    
+    "build": "webpack",
+    "dev": "webpack --watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "autoprefixer": "^10.5.0",
+    "css-loader": "^7.1.4",
+    "postcss": "^8.5.15",
+    "postcss-loader": "^8.2.1",
+    "style-loader": "^4.0.0",
+    "tailwindcss": "^4.3.0",
     "webpack": "^5.107.2",
     "webpack-cli": "^7.0.3"
   }
