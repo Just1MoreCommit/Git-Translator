@@ -93,7 +93,7 @@ document.getElementById('decode').addEventListener('click', async ()=>{
 });
 
 
-      const res = await fetch('http://localhost:3000/summarize', {
+      const res = await fetch('https://git-translator-production.up.railway.app/summarize', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({commits:summaryCommit})
