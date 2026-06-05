@@ -79,4 +79,41 @@ document.getElementById('decode').addEventListener('click', async ()=>{
   console.log(data[0].commit.author.name)
   console.log(data[0].sha)
 
+
+  data.forEach( (commit)=> {
+      const author = commit.commit.author.name;
+      const commitMessage = commit.commit.message;
+      const sha = commit.sha;
+      renderCommit(author, commitMessage, sha);
+    })
+
+
+  function renderCommit(author, commitMessage, sha) {
+    const card = document.createElement('div');
+    card.className = "commit-row bg-[#050505] w-full flex flex-row items-start justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer";
+    card.innerHTML = `
+
+                    <p class="font-mono text-xs text-[#7c3aed] uppercase tracking-wider min-w-[70px] pt-0.5">#${sha}</p>
+
+                    <div class="flex-1 flex flex-col gap-1 min-w-0">
+                        <div class="flex flex-row items-center gap-3">
+                            <span class="text-[10px] font-mono text-[#f59e0b] uppercase tracking-wider font-bold">type of change</span>
+                            <p class="text-sm font-sans text-white truncate">${commitMessage}</p>
+                        </div>
+                        <p class="text-xs font-mono text-gray-500 truncate">Short summary of commit</p>
+                    </div>
+
+                    <div class="flex flex-col items-end gap-1 min-w-[80px]">
+                        <p class="text-xs font-mono text-gray-500 uppercase">14m Ago</p>
+                        <p class="text-xs font-mono text-gray-400">@${author}</p>
+                    </div>
+
+      `
+    
+    const table = document.getElementById('table');
+    table.appendChild(card);
+      
+  }
+
+
 });
