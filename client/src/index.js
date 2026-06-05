@@ -87,8 +87,10 @@ document.getElementById('decode').addEventListener('click', async ()=>{
       renderCommit(author, commitMessage, sha);
     })
 
+});
 
-  function renderCommit(author, commitMessage, sha) {
+
+function renderCommit(author, commitMessage, sha) {
     const card = document.createElement('div');
     card.className = "commit-row bg-[#050505] w-full flex flex-row items-start justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer";
     card.innerHTML = `
@@ -112,8 +114,5 @@ document.getElementById('decode').addEventListener('click', async ()=>{
     
     const table = document.getElementById('table');
     table.appendChild(card);
-      
   }
 
-
-});
