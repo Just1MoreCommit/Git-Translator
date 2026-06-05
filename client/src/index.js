@@ -57,9 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-
+const table = document.getElementById('table');
 
 // github api call
+
+
 
 document.getElementById('decode').addEventListener('click', async ()=>{
   const repoURL = document.getElementById("url-input").value;
@@ -79,15 +81,38 @@ document.getElementById('decode').addEventListener('click', async ()=>{
   console.log(data[0].commit.author.name)
   console.log(data[0].sha)
 
+  table.replaceChildren()
+
+  const summaryCommit = data.map((commit) => commit.commit.message);
 
   data.forEach( (commit)=> {
       const author = commit.commit.author.name;
       const commitMessage = commit.commit.message;
       const sha = commit.sha;
       renderCommit(author, commitMessage, sha);
+});
+
+
+      const res = await fetch('http://localhost:3000/summarize', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({commits:summaryCommit})
+      });
+
+      const result = await res.json();
+      renderSummary(result.summary);
     })
 
-});
+    function renderSummary(result) {
+      const summaryField = document.getElementById('summaryField');
+      summaryField.replaceChildren();
+      summaryField.className = "border-l-2 border-[#7c3aed] pl-4";
+      summaryField.innerHTML = `
+        <p class="text-xs font-mono text-gray-400 leading-relaxed typewriter-text">
+                        ${result}
+                    </p>
+        `
+    }
 
 
 function renderCommit(author, commitMessage, sha) {
@@ -111,8 +136,6 @@ function renderCommit(author, commitMessage, sha) {
                     </div>
 
       `
-    
-    const table = document.getElementById('table');
     table.appendChild(card);
   }
 
