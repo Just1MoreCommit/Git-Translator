@@ -19,13 +19,21 @@ const API_BASE = 'https://git-translator-production-5992.up.railway.app';
 let allCommits = [];
 let sliderPos = 0; // 0 = max commits, 1 = 10 commits
 let isDragging = false;
-let currentPage = 1;
 let cooldownTimer = null;
 let cooldownSeconds = 0;
 let consecutiveErrors = 0;
 let maxCommits = 500; // fixed max slider value
+let currentOwner = '';
+let currentRepo = '';
 const COMMITS_PER_PAGE = 100;
 const COOLDOWN_DURATION = 10;
+
+// Dashboard pagination state
+const dashboardPageState = { page: 1 };
+
+// History view state
+let filteredCommits = [];
+const historyPageState = { page: 1 };
 
 // Slider elements
 const slider = document.querySelector('.dual-slider');
@@ -118,7 +126,7 @@ function renderPagination() {
   return { startIdx, endIdx };
 }
 
-function renderGroupHeader(area, count, color) {
+function renderGroupHeader(area, count, color, container = table) {
   const header = document.createElement('div');
   header.className = 'w-full flex items-center gap-3 px-4 py-2 bg-[#0a0a0a] border-b border-[#1c1c1c]';
   
@@ -142,14 +150,24 @@ function renderGroupHeader(area, count, color) {
   line.className = 'flex-1 h-px bg-[#1c1c1c]';
   header.appendChild(line);
   
-  table.appendChild(header);
+  container.appendChild(header);
 }
 
-function renderCommitTable() {
-  if (!allCommits.length) return;
-  const { startIdx, endIdx } = renderPagination();
-  const visible = allCommits.slice(startIdx, endIdx + 1);
-  while (table.firstChild) table.removeChild(table.firstChild);
+function renderPaginatedTable(tableEl, pageInfoEl, prevBtnEl, nextBtnEl, commitsArray, pageState) {
+  if (!commitsArray.length) return;
+  const totalCommits = commitsArray.length;
+  const totalPages = Math.max(1, Math.ceil(totalCommits / COMMITS_PER_PAGE));
+  pageState.page = Math.min(pageState.page, totalPages);
+  
+  prevBtnEl.disabled = pageState.page <= 1;
+  nextBtnEl.disabled = pageState.page >= totalPages;
+  pageInfoEl.textContent = `Page ${pageState.page} of ${totalPages}`;
+  
+  const startIdx = (pageState.page - 1) * COMMITS_PER_PAGE;
+  const endIdx = Math.min(pageState.page * COMMITS_PER_PAGE - 1, totalCommits - 1);
+  
+  const visible = commitsArray.slice(startIdx, endIdx + 1);
+  while (tableEl.firstChild) tableEl.removeChild(tableEl.firstChild);
   
   // Group visible commits by area
   const groups = {};
@@ -172,25 +190,32 @@ function renderCommitTable() {
   
   sortedAreas.forEach(area => {
     const commits = groups[area];
-    renderGroupHeader(area, commits.length, getAreaColor(area));
-    commits.forEach(commit => renderCommit(commit));
+    renderGroupHeader(area, commits.length, getAreaColor(area), tableEl);
+    commits.forEach(commit => renderCommit(commit, tableEl));
   });
-  
-  document.getElementById('logs-count').textContent = `Logs: ${visible.length} entries (${startIdx + 1}-${endIdx + 1})`;
+}
+
+function renderCommitTable() {
+  renderPaginatedTable(table, pageInfo, prevBtn, nextBtn, allCommits, dashboardPageState);
+  const totalCommits = allCommits.length;
+  const totalPages = Math.max(1, Math.ceil(totalCommits / COMMITS_PER_PAGE));
+  const startIdx = (Math.min(dashboardPageState.page, totalPages) - 1) * COMMITS_PER_PAGE;
+  const endIdx = Math.min(dashboardPageState.page * COMMITS_PER_PAGE - 1, totalCommits - 1);
+  document.getElementById('logs-count').textContent = `Logs: ${Math.min(COMMITS_PER_PAGE, totalCommits)} entries (${startIdx + 1}-${endIdx + 1})`;
 }
 
 // Pagination controls
 prevBtn.addEventListener('click', () => {
-  if (currentPage > 1) {
-    currentPage--;
+  if (dashboardPageState.page > 1) {
+    dashboardPageState.page--;
     renderCommitTable();
   }
 });
 
 nextBtn.addEventListener('click', () => {
   const totalPages = Math.ceil(allCommits.length / COMMITS_PER_PAGE);
-  if (currentPage < totalPages) {
-    currentPage++;
+  if (dashboardPageState.page < totalPages) {
+    dashboardPageState.page++;
     renderCommitTable();
   }
 });
@@ -462,7 +487,7 @@ function generateCommitSummary(message) {
   return { summary: truncate(capitalize(raw) + (raw.endsWith('.') ? '' : '.')), body };
 }
 
-function renderCommit(commit) {
+function renderCommit(commit, container = table) {
   const author = commit.commit.author.name;
   const message = commit.commit.message;
   const sha = commit.sha.substring(0, 7);
@@ -552,7 +577,7 @@ function renderCommit(commit) {
   
   card.appendChild(rightCol);
   
-  table.appendChild(card);
+  container.appendChild(card);
 }
 
 function runTypewriter(el) {
@@ -705,6 +730,8 @@ document.getElementById('decode').addEventListener('click', async () => {
     return;
   }
   const cleanRepo = repo.replace('.git', '');
+  currentOwner = owner;
+  currentRepo = cleanRepo;
   const commitCount = getCommitCountFromSlider();
   console.log(`Decoding ${owner}/${cleanRepo} (fetching ${commitCount} commits)`);
 
@@ -842,7 +869,7 @@ document.getElementById('decode').addEventListener('click', async () => {
   }
 
   // Render table
-  currentPage = 1;
+  dashboardPageState.page = 1;
   renderCommitTable();
   hideLoading();
 
@@ -895,7 +922,7 @@ document.getElementById('new-analysis').addEventListener('click', () => {
   document.getElementById('url-input').value = '';
   allCommits = [];
   sliderPos = 0;
-  currentPage = 1;
+  dashboardPageState.page = 1;
   consecutiveErrors = 0;
   updateSliderUI();
   updateSliderLabel();
@@ -963,9 +990,128 @@ document.getElementById('new-analysis').addEventListener('click', () => {
   nextBtn.disabled = true;
 });
 
-// DOMContentLoaded
+// ── View Switcher ──────────────────────────
+const VIEWS = {
+  dashboard: document.getElementById('view-dashboard'),
+  history: document.getElementById('view-history'),
+  branches: document.getElementById('view-branches'),
+  settings: document.getElementById('view-settings')
+};
+
+function switchView(viewName) {
+  Object.values(VIEWS).forEach(el => el.classList.add('hidden'));
+  if (VIEWS[viewName]) VIEWS[viewName].classList.remove('hidden');
+  
+  // Update sidebar active state
+  const sidebarButtons = document.querySelectorAll('#left-btns button');
+  sidebarButtons.forEach(b => {
+    b.classList.remove('sidebar-active', 'bg-surface', 'text-white');
+    b.classList.add('bg-transparent', 'text-gray-400');
+  });
+  const activeBtn = document.getElementById(viewName === 'commits' ? 'Commits' : viewName.charAt(0).toUpperCase() + viewName.slice(1));
+  if (activeBtn) {
+    activeBtn.classList.add('sidebar-active', 'bg-surface', 'text-white');
+    activeBtn.classList.remove('bg-transparent', 'text-gray-400');
+  }
+}
+
+// ── History View ───────────────────────────
+const historyTable = document.getElementById('history-table');
+const historyPageInfo = document.getElementById('history-page-info');
+const historyPrev = document.getElementById('history-prev');
+const historyNext = document.getElementById('history-next');
+const historyFilter = document.getElementById('history-filter');
+
+function renderHistoryTable() {
+  const source = filteredCommits.length > 0 ? filteredCommits : allCommits;
+  renderPaginatedTable(historyTable, historyPageInfo, historyPrev, historyNext, source, historyPageState);
+}
+
+historyPrev.addEventListener('click', () => {
+  if (historyPageState.page > 1) {
+    historyPageState.page--;
+    renderHistoryTable();
+  }
+});
+
+historyNext.addEventListener('click', () => {
+  const totalPages = Math.ceil((filteredCommits.length || allCommits.length) / COMMITS_PER_PAGE);
+  if (historyPageState.page < totalPages) {
+    historyPageState.page++;
+    renderHistoryTable();
+  }
+});
+
+historyFilter.addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase().trim();
+  if (!query) {
+    filteredCommits = [];
+  } else {
+    filteredCommits = allCommits.filter(c => 
+      c.commit.message.toLowerCase().includes(query) ||
+      c.commit.author.name.toLowerCase().includes(query)
+    );
+  }
+  historyPageState.page = 1;
+  renderHistoryTable();
+});
+
+// ── Branches View ──────────────────────────
+const branchesList = document.getElementById('branches-list');
+const branchesCount = document.getElementById('branches-count');
+
+async function fetchAndRenderBranches() {
+  if (!currentOwner || !currentRepo) {
+    branchesList.innerHTML = '<div class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">No repository selected</div>';
+    branchesCount.textContent = '0 branches';
+    return;
+  }
+  
+  branchesList.innerHTML = '<div class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">Loading branches...</div>';
+  
+  const base = `https://api.github.com/repos/${currentOwner}/${currentRepo}`;
+  const result = await safeFetch(`${base}/branches?per_page=100`, 'branches');
+  
+  if (!result.ok) {
+    branchesList.innerHTML = '<div class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">Failed to load branches</div>';
+    return;
+  }
+  
+  const branches = result.data;
+  branchesCount.textContent = `${branches.length} branch${branches.length !== 1 ? 'es' : ''}`;
+  
+  while (branchesList.firstChild) branchesList.removeChild(branchesList.firstChild);
+  
+  branches.forEach(branch => {
+    const row = document.createElement('div');
+    row.className = 'commit-row bg-[#050505] w-full flex flex-row items-center justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer';
+    
+    const left = document.createElement('div');
+    left.className = 'flex items-center gap-3';
+    
+    const dot = document.createElement('span');
+    dot.className = 'w-2 h-2 rounded-full bg-[#7c3aed]';
+    left.appendChild(dot);
+    
+    const name = document.createElement('span');
+    name.className = 'text-sm font-mono text-white';
+    name.textContent = branch.name;
+    left.appendChild(name);
+    
+    if (branch.protected) {
+      const badge = document.createElement('span');
+      badge.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#7c3aed]20 text-[#7c3aed]';
+      badge.textContent = 'protected';
+      left.appendChild(badge);
+    }
+    
+    row.appendChild(left);
+    branchesList.appendChild(row);
+  });
+}
+
+// ── DOMContentLoaded ─────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize slider
   updateSliderUI();
   updateSliderLabel();
   
@@ -977,21 +1123,24 @@ document.addEventListener('DOMContentLoaded', () => {
     entry.style.animationDelay = `${index * 0.1}s`;
   });
 
-  const sidebarButtons = document.querySelectorAll('#left-btns button');
+  // Sidebar navigation
+  const viewMap = {
+    'Dashboard': 'dashboard',
+    'History': 'history',
+    'Branches': 'branches',
+    'Commits': 'commits',
+    'Settings': 'settings'
+  };
+
+  const sidebarButtons = document.querySelectorAll('#left-btns button, #left-col button');
   sidebarButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      sidebarButtons.forEach(b => {
-        b.classList.remove('sidebar-active');
-        b.classList.remove('bg-surface');
-        b.classList.remove('text-white');
-        b.classList.add('bg-transparent');
-        b.classList.add('text-gray-400');
-      });
-      btn.classList.add('sidebar-active');
-      btn.classList.add('bg-surface');
-      btn.classList.add('text-white');
-      btn.classList.remove('bg-transparent');
-      btn.classList.remove('text-gray-400');
+      const view = viewMap[btn.id];
+      if (view) {
+        switchView(view);
+        if (view === 'branches') fetchAndRenderBranches();
+        if (view === 'history') renderHistoryTable();
+      }
     });
   });
 });
