@@ -118,12 +118,64 @@ function renderPagination() {
   return { startIdx, endIdx };
 }
 
+function renderGroupHeader(area, count, color) {
+  const header = document.createElement('div');
+  header.className = 'w-full flex items-center gap-3 px-4 py-2 bg-[#0a0a0a] border-b border-[#1c1c1c]';
+  
+  const dot = document.createElement('span');
+  dot.className = 'w-2 h-2 rounded-full flex-shrink-0';
+  dot.style.background = color;
+  header.appendChild(dot);
+  
+  const label = document.createElement('span');
+  label.className = 'text-xs font-mono uppercase tracking-wider font-bold';
+  label.style.color = color;
+  label.textContent = area;
+  header.appendChild(label);
+  
+  const countBadge = document.createElement('span');
+  countBadge.className = 'text-[10px] font-mono text-gray-500';
+  countBadge.textContent = `${count}`;
+  header.appendChild(countBadge);
+  
+  const line = document.createElement('div');
+  line.className = 'flex-1 h-px bg-[#1c1c1c]';
+  header.appendChild(line);
+  
+  table.appendChild(header);
+}
+
 function renderCommitTable() {
   if (!allCommits.length) return;
   const { startIdx, endIdx } = renderPagination();
   const visible = allCommits.slice(startIdx, endIdx + 1);
   while (table.firstChild) table.removeChild(table.firstChild);
-  visible.forEach(commit => renderCommit(commit));
+  
+  // Group visible commits by area
+  const groups = {};
+  visible.forEach(commit => {
+    const area = getAreaLabel(commit.commit.message);
+    groups[area] = groups[area] || [];
+    groups[area].push(commit);
+  });
+  
+  // Render each group
+  const areaOrder = ['UI','API','Test','Core','Auth','DB','Fix','Feat','Ref','Perf','Build','CI','Docs','Backend','Deps','Mobile','Dev','Change'];
+  const sortedAreas = Object.keys(groups).sort((a, b) => {
+    const ia = areaOrder.indexOf(a);
+    const ib = areaOrder.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  
+  sortedAreas.forEach(area => {
+    const commits = groups[area];
+    renderGroupHeader(area, commits.length, getAreaColor(area));
+    commits.forEach(commit => renderCommit(commit));
+  });
+  
   document.getElementById('logs-count').textContent = `Logs: ${visible.length} entries (${startIdx + 1}-${endIdx + 1})`;
 }
 
@@ -270,46 +322,144 @@ function getAreaColor(area) {
   return map[area] || '#9ca3af';
 }
 
+function capitalize(str) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function truncate(str, maxWords = 10) {
+  const words = str.replace(/\.$/, '').split(/\s+/);
+  if (words.length <= maxWords) return str;
+  return words.slice(0, maxWords).join(' ') + '…';
+}
+
+function getCommitTypeEmoji(message) {
+  const m = message.match(/^(\w+)(?:\([^)]+\))?:/);
+  if (m) {
+    const map = { feat:'✨', fix:'🐛', docs:'📝', refactor:'♻️', test:'🧪', perf:'⚡', ci:'🔧', build:'🏗️', chore:'🔩', style:'💄', init:'🎉', revert:'⏪' };
+    return map[m[1]] || '🔹';
+  }
+  if (/^merge/i.test(message)) return '🔀';
+  if (/^(?:revert|rollback|undo)/i.test(message)) return '⏪';
+  if (/^release|^v?\d+\.\d+/.test(message)) return '🚀';
+  if (/^deploy/i.test(message)) return '🚀';
+  if (/^wip|^draft/i.test(message)) return '🚧';
+  if (/^(?:add|implement)/i.test(message)) return '➕';
+  if (/^(?:remove|delete|drop)/i.test(message)) return '➖';
+  if (/^(?:update|upgrade|bump)/i.test(message)) return '⬆️';
+  if (/^fix/i.test(message)) return '🩹';
+  if (/^refactor/i.test(message)) return '♻️';
+  if (/^test/i.test(message)) return '🧪';
+  if (/^docs/i.test(message)) return '📝';
+  return '🔹';
+}
+
 function generateCommitSummary(message) {
   const lines = message.split('\n');
   const title = lines[0];
   const body = lines.slice(1).join('\n').trim();
-  
-  const match = title.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.*)$/);
-  if (!match) {
-    return { summary: title, body: body };
+  const raw = title.trim();
+  if (!raw) return { summary: 'Empty commit message.', body };
+
+  // Conventional Commits
+  const convMatch = raw.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.*)$/);
+  if (convMatch) {
+    const type = convMatch[1].toLowerCase();
+    const scope = convMatch[2];
+    const desc = convMatch[3];
+    const actionMap = {
+      feat: 'Added', fix: 'Fixed', docs: 'Updated documentation for',
+      refactor: 'Refactored', test: 'Added tests for', chore: 'Updated',
+      style: 'Improved styling of', perf: 'Optimized', build: 'Updated build configuration for',
+      ci: 'Updated CI/CD for', init: 'Initialized', add: 'Added',
+      remove: 'Removed', delete: 'Deleted', update: 'Updated',
+      bump: 'Bumped', merge: 'Merged', revert: 'Reverted'
+    };
+    const action = actionMap[type] || 'Updated';
+    const scopeText = scope ? ` in ${scope}` : '';
+    return { summary: truncate(`${action} ${desc}${scopeText}.`), body };
   }
-  
-  const type = match[1].toLowerCase();
-  const scope = match[2];
-  const desc = match[3];
-  
-  const actionMap = {
-    feat: 'Added',
-    fix: 'Fixed',
-    docs: 'Updated documentation for',
-    refactor: 'Refactored',
-    test: 'Added tests for',
-    chore: 'Updated',
-    style: 'Improved styling of',
-    perf: 'Optimized',
-    build: 'Updated build configuration for',
-    ci: 'Updated CI/CD for',
-    init: 'Initialized',
-    add: 'Added',
-    remove: 'Removed',
-    delete: 'Deleted',
-    update: 'Updated',
-    bump: 'Bumped',
-    merge: 'Merged',
-    revert: 'Reverted'
-  };
-  
-  const action = actionMap[type] || 'Updated';
-  const scopeText = scope ? ` in ${scope}` : '';
-  const summary = `${action} ${desc}${scopeText}.`;
-  
-  return { summary, body };
+
+  const rules = [
+    [/^merge pull request #(\d+)\s+from\s+(.+)/i, (m) => `Merged PR #${m[1]} from ${m[2].trim()}.`],
+    [/^merge pull request\s+from\s+(.+)/i, (m) => `Merged PR from ${m[1].trim()}.`],
+    [/^merge (?:branch\s+)?['"]?(\S+?)['"]?\s+into\s+['"]?(\S+?)['"]?$/i, (m) => `Merged ${m[1]} into ${m[2]}.`],
+    [/^merge (?:branch\s+)?['"]?(\S+?)['"]?$/i, (m) => `Merged branch ${m[1]}.`],
+    [/^merge\s+([a-f0-9]{7,40})/i, (m) => `Merged commit ${m[1]}.`],
+    [/^revert\s+["'](.+?)["']/i, (m) => `Reverted "${m[1]}".`],
+    [/^rollback\s+to\s+v?(\S+)/i, (m) => `Rolled back to v${m[1].replace(/^v/, '')}.`],
+    [/^(?:revert|rollback|undo)\s+(.+)/i, (m) => `Reverted ${m[1].trim()}.`],
+    [/^release\s+v?(\d+\.\d+(?:\.\d+)?(?:[-\w.]*))/i, (m) => `Released v${m[1]}.`],
+    [/^bump\s+(\S+)\s+(?:to\s+|from\s+\S+\s+to\s+)v?(\S+)/i, (m) => `Bumped ${m[1]} to v${m[2].replace(/^v/, '')}.`],
+    [/^bump\s+(?:version\s+)?(?:to\s+)?v?(\d+\.\d+(?:\.\d+)?(?:[-\w.]*))/i, (m) => `Bumped version to v${m[1]}.`],
+    [/^tag\s+v?(\d+\.\d+(?:\.\d+)?(?:[-\w.]*))/i, (m) => `Tagged v${m[1]}.`],
+    [/^v?(\d+\.\d+\.\d+(?:[-\w.]*))$/i, (m) => `Released v${m[1]}.`],
+    [/^(?:first|initial)\s+commit$/i, () => 'Initialized the repository.'],
+    [/^init(?:ialize)?\s+(.+)/i, (m) => `Initialized ${m[1].trim()}.`],
+    [/^(?:scaffold|bootstrap)\s+(.+)/i, (m) => `Scaffolded ${m[1].trim()}.`],
+    [/^(?:project\s+)?setup\s*(.+)?$/i, (m) => m[1] ? `Set up ${m[1].trim()}.` : 'Set up the project.'],
+    [/^deploy(?:ed)?\s+(?:to\s+)?(.+)/i, (m) => `Deployed to ${m[1].trim()}.`],
+    [/^deploy$/i, () => 'Deployed the application.'],
+    [/^publish\s+(.+)/i, (m) => `Published ${m[1].trim()}.`],
+    [/^build\s+(?:for\s+)?(.+)/i, (m) => `Built for ${m[1].trim()}.`],
+    [/^(?:upgrade|update)\s+(?:all\s+)?dep(?:endencie)?s?$/i, () => 'Updated dependencies.'],
+    [/^(?:add|install)\s+(\S+)\s+(?:dep(?:endency)?|package)/i, (m) => `Added ${m[1]} dependency.`],
+    [/^(?:remove|uninstall|drop)\s+(\S+)\s+(?:dep(?:endency)?|package)/i, (m) => `Removed ${m[1]} dependency.`],
+    [/^(?:update|regenerate|refresh)\s+(?:lock\s*file|package-lock|yarn\.lock)/i, () => 'Updated lock file.'],
+    [/^(?:npm|yarn|pnpm)\s+install/i, () => 'Installed dependencies.'],
+    [/^add\s+(?:unit\s+|integration\s+|e2e\s+)?tests?\s+(?:for\s+)?(.+)/i, (m) => `Added tests for ${m[1].trim()}.`],
+    [/^fix\s+(?:broken\s+|failing\s+)?tests?\s*(?:for\s+)?(.*)$/i, (m) => m[1] ? `Fixed tests for ${m[1].trim()}.` : 'Fixed tests.'],
+    [/^(?:improve|increase|add)\s+(?:test\s+)?coverage\s*(?:for\s+)?(.*)$/i, (m) => m[1] ? `Improved coverage for ${m[1].trim()}.` : 'Improved test coverage.'],
+    [/^update\s+(?:test\s+)?snapshots?/i, () => 'Updated test snapshots.'],
+    [/^tests?\s*:\s*(.+)/i, (m) => `Tested ${m[1].trim()}.`],
+    [/^(?:update|improve|rewrite|edit)\s+readme(?:\.md)?/i, () => 'Updated the README.'],
+    [/^(?:add|update)\s+changelog/i, () => 'Updated the changelog.'],
+    [/^(?:add|update|write|improve)\s+docs?\s+(?:for\s+)?(.+)/i, (m) => `Documented ${m[1].trim()}.`],
+    [/^(?:add|update|improve)\s+(?:code\s+)?comments?\s*(?:in\s+|for\s+)?(.*)$/i, (m) => m[1] ? `Added comments in ${m[1].trim()}.` : 'Added code comments.'],
+    [/^(?:update|add|fix|configure)\s+(?:ci(?:\/cd)?|github\s+actions?|circleci|jenkins|travis)\s*(.*)/i, (m) => m[1] ? `Configured CI/CD: ${m[1].trim()}.` : 'Configured CI/CD pipeline.'],
+    [/^(?:add|update|fix)\s+dockerfile\s*(.*)/i, (m) => m[1] ? `Updated Dockerfile ${m[1].trim()}.` : 'Updated Dockerfile.'],
+    [/^(?:update|add|modify|fix)\s+\.?(?:env|config|eslint|prettier|babel|webpack|vite)\s*(.*)/i, (m) => m[1] ? `Updated config: ${m[1].trim()}.` : 'Updated configuration.'],
+    [/^(?:update|add)\s+\.?(?:gitignore|dockerignore|npmignore)/i, () => 'Updated ignore rules.'],
+    [/^(?:fix|patch|address)\s+(?:security\s+)?(?:vuln(?:erabilit)?(?:y|ies)|cve|xss|csrf|injection)\s*(.*)/i, (m) => m[1] ? `Patched vulnerability in ${m[1].trim()}.` : 'Patched security vulnerability.'],
+    [/^(?:add|update|fix|improve|implement)\s+(?:auth(?:entication|orization)?|token|password|oauth|session)\s*(.*)/i, (m) => m[1] ? `Updated auth: ${m[1].trim()}.` : 'Updated authentication.'],
+    [/^(?:add|update|implement)\s+(?:encrypt(?:ion)?|hash(?:ing)?|ssl|tls)\s*(.*)/i, (m) => m[1] ? `Secured ${m[1].trim()}.` : 'Added encryption.'],
+    [/^(?:optimize|perf|improve\s+perf(?:ormance)?)\s*(?:of\s+|for\s+|:\s*)?(.+)/i, (m) => `Optimized ${m[1].trim()}.`],
+    [/^(?:add|implement|enable)\s+cach(?:e|ing)\s*(?:for\s+)?(.*)$/i, (m) => m[1] ? `Added caching for ${m[1].trim()}.` : 'Added caching.'],
+    [/^(?:add|implement|enable)\s+(?:lazy\s+load(?:ing)?|code\s+split(?:ting)?)\s*(?:for\s+)?(.*)$/i, (m) => m[1] ? `Optimized loading for ${m[1].trim()}.` : 'Optimized loading.'],
+    [/^refactor\s*(?::\s*)?(.+)/i, (m) => `Refactored ${m[1].trim()}.`],
+    [/^(?:remove|delete|clean\s*up)\s+(?:dead|unused|obsolete)\s+(?:code|imports?|files?)\s*(.*)/i, (m) => m[1] ? `Cleaned up dead code in ${m[1].trim()}.` : 'Cleaned up dead code.'],
+    [/^simplify\s+(.+)/i, (m) => `Simplified ${m[1].trim()}.`],
+    [/^(?:rename|move)\s+(\S+)\s+(?:to\s+)(\S+)/i, (m) => `Renamed ${m[1]} → ${m[2]}.`],
+    [/^clean\s*up\s*(.*)/i, (m) => m[1] ? `Cleaned up ${m[1].trim()}.` : 'Cleaned up codebase.'],
+    [/^(?:fix|correct)\s+(?:typo|spelling|misspelling)s?\s*(?:in\s+)?(.*)$/i, (m) => m[1] ? `Fixed typo in ${m[1].trim()}.` : 'Fixed typo.'],
+    [/^(?:run\s+)?(?:lint|format|prettier|eslint)\s*(?:fix(?:es)?)?\s*(.*)/i, (m) => m[1] ? `Formatted ${m[1].trim()}.` : 'Formatted codebase.'],
+    [/^(?:fix|clean\s*up|normalize)\s+(?:whitespace|indentation|spacing|tabs)/i, () => 'Cleaned up whitespace.'],
+    [/^hotfix\s*(?::\s*|[-–]\s*)?(.+)/i, (m) => `Hotfixed ${m[1].trim()}.`],
+    [/^bugfix\s*(?::\s*|[-–]\s*)?(.+)/i, (m) => `Fixed ${m[1].trim()}.`],
+    [/^patch\s+(.+)/i, (m) => `Patched ${m[1].trim()}.`],
+    [/^fix(?:e[sd])?\s+(.+)/i, (m) => `Fixed ${m[1].trim()}.`],
+    [/^(?:wip|draft|🚧)\s*(?::\s*|[-–]\s*)?(.+)/i, (m) => `Work in progress: ${m[1].trim()}.`],
+    [/^(?:wip|draft|🚧)$/i, () => 'Work in progress.'],
+    [/^add(?:ed)?\s+(.+)/i, (m) => `Added ${m[1].trim()}.`],
+    [/^(?:remove[d]?|delete[d]?)\s+(.+)/i, (m) => `Removed ${m[1].trim()}.`],
+    [/^implement(?:ed)?\s+(.+)/i, (m) => `Implemented ${m[1].trim()}.`],
+    [/^(?:improve[d]?|enhance[d]?)\s+(.+)/i, (m) => `Improved ${m[1].trim()}.`],
+    [/^(?:change[d]?|modif(?:y|ied))\s+(.+)/i, (m) => `Changed ${m[1].trim()}.`],
+    [/^update[d]?\s+(.+)/i, (m) => `Updated ${m[1].trim()}.`],
+    [/^(?:tweak(?:ed)?|polish(?:ed)?)\s+(.+)/i, (m) => `Tweaked ${m[1].trim()}.`],
+    [/^(?:enable[d]?|disable[d]?)\s+(.+)/i, (m) => `Toggled ${m[1].trim()}.`],
+    [/^replace[d]?\s+(.+)/i, (m) => `Replaced ${m[1].trim()}.`],
+    [/^migrate[d]?\s+(.+)/i, (m) => `Migrated ${m[1].trim()}.`],
+  ];
+
+  for (const [regex, formatter] of rules) {
+    const match = raw.match(regex);
+    if (match) {
+      return { summary: truncate(formatter(match)), body };
+    }
+  }
+
+  return { summary: truncate(capitalize(raw) + (raw.endsWith('.') ? '' : '.')), body };
 }
 
 function renderCommit(commit) {
@@ -319,6 +469,7 @@ function renderCommit(commit) {
   const date = commit.commit.author.date;
   const area = getAreaLabel(message);
   const color = getAreaColor(area);
+  const emoji = getCommitTypeEmoji(message);
   const { summary, body } = generateCommitSummary(message);
   
   const hasBody = body && body.length > 10;
@@ -336,17 +487,18 @@ function renderCommit(commit) {
   flexCol.className = 'flex-1 flex flex-col gap-1 min-w-0 overflow-hidden';
   
   const headerRow = document.createElement('div');
-  headerRow.className = 'flex flex-row items-center gap-3 min-w-0';
+  headerRow.className = 'flex flex-row items-center gap-2 min-w-0';
   
-  const areaSpan = document.createElement('span');
-  areaSpan.className = 'text-[10px] font-mono uppercase tracking-wider font-bold flex-shrink-0';
-  areaSpan.style.color = color;
-  areaSpan.textContent = area;
-  headerRow.appendChild(areaSpan);
+  const areaBadge = document.createElement('span');
+  areaBadge.className = 'text-[10px] font-mono uppercase tracking-wider font-bold flex-shrink-0 px-1.5 py-0.5 rounded';
+  areaBadge.style.background = color + '20';
+  areaBadge.style.color = color;
+  areaBadge.textContent = `${emoji} ${area}`;
+  headerRow.appendChild(areaBadge);
   
   const titleP = document.createElement('p');
   titleP.className = 'text-sm font-sans text-white truncate';
-  titleP.textContent = commit.commit.message.split('\n')[0];
+  titleP.textContent = summary;
   headerRow.appendChild(titleP);
   
   flexCol.appendChild(headerRow);
