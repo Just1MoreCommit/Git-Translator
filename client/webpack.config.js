@@ -20,7 +20,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './index.html',
             favicon: './assets/Gitly.png',
-            inject: false
+            inject: true
         })
     ]
 };
