@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gitly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/Gitly.png">
+<link rel="icon" href="Gitly.png"><script defer src="bundle.js"></script></head>
+<body class="min-h-screen w-full bg-[#050505] text-white font-sans overflow-x-hidden">
+
+    <!-- Header -->
+    <div id="header" class="flex flex-row items-center justify-between px-6 py-2 bg-[#050505] border-b border-[#1c1c1c] sticky top-0 z-50">
+
+        <div class="flex items-center gap-6">
+            <div id="head-left" class="text-base font-bold tracking-widest font-sans uppercase">
+                <p class="text-white">Gitly</p>
+            </div>
+            <div id="head-mid" class="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-500">
+                <span class="w-2 h-2 bg-[#7c3aed] inline-block"></span>
+                <p>SYS_ACTIVE</p>
+            </div>
+        </div>
+
+        <div id="head-right" class="flex items-center gap-5">
+            <div class="hidden md:flex items-center gap-4 text-xs font-mono uppercase tracking-wider text-gray-500">
+                <span class="hover:text-white cursor-pointer transition-colors">Terminal</span>
+                <span class="hover:text-white cursor-pointer transition-colors">Sync_04</span>
+                <span class="hover:text-white cursor-pointer transition-colors">Cfg</span>
+            </div>
+            <img src="https://avatars.githubusercontent.com/u/235946347?v=4" width="36" height="36" class="rounded-none border border-white/20" alt="User avatar">
+        </div>
+
+    </div>
+
+
+    <!-- Main Body -->
+    <div id="body" class="flex flex-row min-h-screen">
+
+        <!-- Left Sidebar -->
+        <div id="left-col" class="w-64 bg-[#050505] border-r border-[#1c1c1c] pt-0 pl-0 pr-0 sticky top-0 h-screen flex flex-col justify-between">
+
+            <div>
+                <!-- Logo and New Analysis -->
+                <div class="border-b border-[#1c1c1c] p-5 pb-6 flex flex-col gap-6 w-64">
+
+                    <div class="flex flex-row items-center gap-3">
+                        <img src="assets/Gitly.png" width="44" height="44" alt="Gitly Logo" class="rounded-none border border-white/10">
+                        <div class="flex flex-col gap-0">
+                            <p class="font-sans text-sm font-bold text-white leading-none uppercase tracking-wider">Gitly</p>
+                            <p class="font-mono text-[10px] text-gray-500 leading-tight">V2.0.014</p>
+                        </div>
+                    </div>
+
+                    <button id="new-analysis" class="btn-shimmer bg-white text-[#050505] py-3 uppercase font-mono text-xs font-bold tracking-widest border-none cursor-pointer hover:bg-gray-100 transition-colors w-full">
+                        New Analysis
+                    </button>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div id="left-btns" class="flex flex-col pt-2">
+                    <button id="Dashboard" class="sidebar-active flex items-center gap-3 px-5 py-3 text-white font-mono text-xs uppercase tracking-wider border-none cursor-pointer hover:bg-[#0e0e0e] transition-colors text-left">
+                        <span class="text-gray-500">⊞</span> Dashboard
+                    </button>
+                    <button id="History" class="flex items-center gap-3 px-5 py-3 bg-transparent text-gray-400 font-mono text-xs uppercase tracking-wider border-none cursor-pointer hover:bg-[#0e0e0e] hover:text-white transition-colors text-left">
+                        <span class="text-gray-500">◷</span> History
+                    </button>
+                    <button id="Branches" class="flex items-center gap-3 px-5 py-3 bg-transparent text-gray-400 font-mono text-xs uppercase tracking-wider border-none cursor-pointer hover:bg-[#0e0e0e] hover:text-white transition-colors text-left">
+                        <span class="text-gray-500">☊</span> Branches
+                    </button>
+                    <button id="Commits" class="flex items-center gap-3 px-5 py-3 bg-transparent text-gray-400 font-mono text-xs uppercase tracking-wider border-none cursor-pointer hover:bg-[#0e0e0e] hover:text-white transition-colors text-left">
+                        <span class="text-gray-500">▣</span> Commits
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Nav -->
+            <div class="flex flex-col border-t border-[#1c1c1c] pt-2 pb-4">
+                <button class="flex items-center gap-3 px-5 py-3 bg-transparent text-gray-400 font-mono text-xs uppercase tracking-wider border-none cursor-pointer hover:bg-[#0e0e0e] hover:text-white transition-colors text-left">
+                    <span class="text-gray-500">⚙</span> Settings
+                </button>
+                <button class="flex items-center gap-3 px-5 py-3 bg-transparent text-gray-400 font-mono text-xs uppercase tracking-wider border-none cursor-pointer hover:bg-[#0e0e0e] hover:text-white transition-colors text-left">
+                    <span class="text-gray-500">↪</span> Signout
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Middle Column -->
+        <div id="mid-col" class="flex-1 p-6 flex flex-col gap-6 overflow-x-hidden min-w-0">
+
+            <!-- Laboratory Card (Input) -->
+            <div class="bg-white p-6 text-[#050505] w-full border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+                <p class="text-xs font-mono text-gray-500 font-medium mb-1 tracking-widest uppercase">Input_Laboratory // Repository_Decoder</p>
+                <p class="text-[10px] text-gray-400 font-mono uppercase tracking-widest mb-6">Github_URL_Endpoint</p>
+
+                <div class="bg-white border border-gray-300 p-4 mb-6">
+                    <input
+                        id="url-input"
+                        type="text"
+                        placeholder="https://github.com/protocol/gitlens-cor"
+                        class="input-focus-glow w-full px-2 py-1 text-3xl font-mono text-[#050505] placeholder-gray-400 bg-transparent"
+                    >
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    <div class="flex justify-between text-[10px] font-mono text-gray-500 uppercase tracking-wider">
+                        <span id="range-start-label">Analysis Depth: 100 commits</span>
+                        <span id="range-status" class="text-[#7c3aed] opacity-0 transition-opacity">Custom depth active</span>
+                    </div>
+
+                    <!-- Custom Single Slider -->
+                    <div class="dual-slider">
+                        <div class="dual-slider-track"></div>
+                        <div class="dual-slider-handle"></div>
+                    </div>
+                    <p class="text-[9px] font-mono text-gray-600 uppercase tracking-wider mt-1">Slide to reduce commits fetched — helps avoid GitHub rate limits</p>
+
+                    <div class="flex justify-end mt-2">
+                        <button  id="decode" class="btn-shimmer bg-[#050505] text-white font-mono text-xs font-bold uppercase tracking-widest px-8 py-3 hover:bg-[#7c3aed] cursor-pointer border border-white/10 transition-colors flex items-center gap-2">
+                            Initialize_Decoding <span class="text-lg leading-none">⚡</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Protocol Summary -->
+            <div class="bg-[#050505] p-6 text-white w-full border border-[#1c1c1c]">
+                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-5">Protocol_Summary</p>
+
+                <!-- Stats Row -->
+                <div class="flex flex-row justify-start gap-16 mb-6">
+
+                    <div class="flex flex-col justify-center gap-1">
+                        <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Total_Commits</p>
+                        <p id="total-commits" class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">--</p>
+                    </div>
+
+                    <div class="flex flex-col justify-center gap-1">
+                        <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Authors</p>
+                        <p id="authors-count" class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">--</p>
+                    </div>
+
+                    <div class="flex flex-col justify-center gap-1">
+                        <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Latest_Tag</p>
+                        <p id="latest-tag" class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">--</p>
+                    </div>
+
+                </div>
+
+                <!-- Insight with accent line -->
+                <div id="summaryField" class="border-l-2 border-[#7c3aed] pl-4">
+                    <p class="text-xs font-mono text-gray-400 leading-relaxed typewriter-text">
+                        Branch 'main' exhibits high commit density with localized fragmentation in the
+                        core/stream module. Architecture remains stable despite recent merge volatility.
+                    </p>
+                </div>
+            </div>
+
+
+            <!-- Decoding Stream Header -->
+            <div class="flex justify-between items-center py-1 border-b border-[#1c1c1c]">
+                <p class="font-mono uppercase tracking-widest text-xs text-white">Decoding_Stream</p>
+                <p id="logs-count" class="font-mono uppercase tracking-widest text-xs text-gray-500">Logs: -- entries</p>
+            </div>
+
+            <!-- Commit Table -->
+            <div id="table" class="w-full flex flex-col gap-px bg-[#1c1c1c] relative z-10 border border-[#1c1c1c]">
+                <!-- Commits will be rendered here -->
+                <div id="table-placeholder" class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">
+                    Awaiting_Input // No_Data
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" class="flex justify-between items-center py-3 border-t border-[#1c1c1c] mt-2">
+                <button id="prev-page" class="text-xs font-mono text-gray-500 uppercase tracking-wider hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                    < Prev
+                </button>
+                <p id="page-info" class="text-xs font-mono text-gray-500 uppercase tracking-wider">Page 1 of 1</p>
+                <button id="next-page" class="text-xs font-mono text-gray-500 uppercase tracking-wider hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                    Next >
+                </button>
+            </div>
+
+
+        </div>
+
+
+        <!-- Right Sidebar -->
+        <div id="right-col" class="w-72 bg-[#050505] border-l border-[#1c1c1c] p-5 sticky top-0 h-screen flex flex-col gap-5 overflow-y-auto">
+
+            <!-- Repository Metadata -->
+            <div class="border border-[#1c1c1c] p-4">
+                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3">Repository_Metadata</p>
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-12 h-12 bg-[#0e0e0e] border border-white/10 flex items-center justify-center">
+                        <span class="text-xl">◈</span>
+                    </div>
+                    <div>
+                        <p id="repo-name" class="text-sm font-bold text-white">Gitly/Core</p>
+                        <p class="text-[10px] font-mono text-gray-500">Public Repository</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 text-[10px] font-mono text-gray-500">
+                    <span id="repo-stars">★ --</span>
+                    <span id="repo-forks">⑂ --</span>
+                </div>
+            </div>
+
+            <!-- Language Breakdown -->
+            <div class="border border-[#1c1c1c] p-4">
+                <div class="flex justify-between items-center mb-3 gap-2">
+                    <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Language_Breakdown</p>
+                    <span class="text-[9px] font-mono text-[#7c3aed] uppercase tracking-wider">Scan_Complete</span>
+                </div>
+                <div id="lang-bar" class="lang-bar mb-2">
+                    <div class="lang-fill ts" style="width:78%"></div>
+                    <div class="lang-fill rust" style="width:22%"></div>
+                </div>
+                <div id="lang-legend" class="flex gap-3 text-[10px] font-mono text-gray-500">
+                    <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-[#7c3aed] inline-block"></span> TypeScript (78%)</span>
+                    <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-[#a78bfa] inline-block"></span> Rust (22%)</span>
+                </div>
+            </div>
+
+            <!-- Top Contributors -->
+            <div class="border border-[#1c1c1c] p-4">
+                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3">Top_Contributors</p>
+                <div id="contributors-list" class="flex flex-col gap-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-5 h-5 bg-[#0e0e0e] border border-white/10"></div>
+                            <span class="text-xs font-mono text-white">--</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-[#7c3aed]">-- commits</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Index -->
+            <div class="border border-[#1c1c1c] p-4">
+                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3">Activity_Index</p>
+                <div id="bar-chart" class="bar-chart mb-1">
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-mono text-gray-500">
+                    <span>L_Week</span>
+                    <span>C_Week</span>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="mt-auto border-t border-[#1c1c1c] pt-4 pb-2">
+                <p class="text-[10px] font-mono text-gray-500 uppercase tracking-wider mb-2">
+                    System_Status: <span class="text-[#7c3aed]">Nominal</span> // All_Nodes_Synced
+                </p>
+                <div class="sync-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+
+        </div>
+
+
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-[#050505]/90 z-[100] flex flex-col items-center justify-center hidden">
+        <div class="text-[#7c3aed] text-6xl mb-6 animate-spin-slow">◈</div>
+        <p id="loading-text" class="text-xs font-mono text-gray-400 uppercase tracking-widest animate-pulse">Decoding Repository...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[90] bg-[#1c1c1c] border border-[#7c3aed] px-6 py-3 text-xs font-mono text-white uppercase tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none">
+        Backend is processing. Please wait.
+    </div>
+
+    <script src="dist/bundle.js"></script>
+</body>
+</html>
