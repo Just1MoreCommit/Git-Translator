@@ -114,7 +114,7 @@ body {
   color: #ffffff;
 }
 
-/* Custom dual slider */
+/* Custom single slider */
 .dual-slider {
   position: relative;
   height: 4px;
@@ -146,6 +146,8 @@ body {
   cursor: grab;
   z-index: 10;
   transition: border-color 0.15s, background 0.15s;
+  left: 0%;
+  margin-left: -8px;
 }
 
 .dual-slider-handle:hover {
@@ -158,14 +160,19 @@ body {
   background: #1c1c1c;
 }
 
-.dual-slider-handle.left {
-  left: 0%;
-  margin-left: -8px;
+/* Loading overlay */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.dual-slider-handle.right {
-  right: 0%;
-  margin-right: -8px;
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+/* Toast */
+#toast {
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.2);
 }
 
 /* Bar chart */

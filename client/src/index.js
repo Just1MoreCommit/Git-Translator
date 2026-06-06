@@ -6,25 +6,49 @@ const table = document.getElementById('table');
 const prevBtn = document.getElementById('prev-page');
 const nextBtn = document.getElementById('next-page');
 const pageInfo = document.getElementById('page-info');
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadingText = document.getElementById('loading-text');
+const toast = document.getElementById('toast');
+const decodeBtn = document.getElementById('decode');
 
 // State
 let allCommits = [];
-let sliderState = { start: 0, end: 1 };
-let isDragging = null;
+let sliderPos = 0; // 0 = 100 commits, 1 = 10 commits
+let isDragging = false;
 let currentPage = 1;
+let cooldownTimer = null;
+let cooldownSeconds = 0;
+let consecutiveErrors = 0;
 const COMMITS_PER_PAGE = 100;
+const COOLDOWN_DURATION = 10;
 
 // Slider elements
 const slider = document.querySelector('.dual-slider');
 const track = document.querySelector('.dual-slider-track');
-const handleLeft = document.querySelector('.dual-slider-handle.left');
-const handleRight = document.querySelector('.dual-slider-handle.right');
+const handle = document.querySelector('.dual-slider-handle');
+const rangeStatus = document.getElementById('range-status');
+
+function getCommitCountFromSlider() {
+  // Map sliderPos (0-1) to commit count (100 down to 10)
+  return Math.max(10, Math.round(100 - (sliderPos * 90)));
+}
 
 function updateSliderUI() {
-  track.style.left = `${sliderState.start * 100}%`;
-  track.style.right = `${(1 - sliderState.end) * 100}%`;
-  handleLeft.style.left = `${sliderState.start * 100}%`;
-  handleRight.style.right = `${(1 - sliderState.end) * 100}%`;
+  const visibleWidth = (1 - sliderPos) * 100;
+  track.style.left = `${sliderPos * 100}%`;
+  track.style.right = '0%';
+  handle.style.left = `${sliderPos * 100}%`;
+  
+  if (sliderPos > 0.01) {
+    rangeStatus.style.opacity = '1';
+  } else {
+    rangeStatus.style.opacity = '0';
+  }
+}
+
+function updateSliderLabel() {
+  const count = getCommitCountFromSlider();
+  document.getElementById('range-start-label').textContent = `Analysis Depth: ${count} commits`;
 }
 
 function getSliderPos(e) {
@@ -34,36 +58,59 @@ function getSliderPos(e) {
   return Math.max(0, Math.min(1, x / rect.width));
 }
 
-function updateSliderLabels() {
-  if (!allCommits.length) return;
-  const N = allCommits.length;
-  const from = Math.floor((1 - sliderState.end) * (N - 1));
-  const to = Math.floor((1 - sliderState.start) * (N - 1));
-  const startSha = allCommits[to]?.sha?.substring(0, 7) || '0x0000';
-  const endSha = allCommits[from]?.sha?.substring(0, 7) || '0x0000';
-  document.getElementById('range-start-label').textContent = `Commit_Range_Start: ${startSha}`;
-  document.getElementById('range-end-label').textContent = `Commit_Range_End: ${endSha}`;
+// Slider events — NO dependency on allCommits
+function handleDragMove(e) {
+  if (!isDragging) return;
+  sliderPos = getSliderPos(e);
+  updateSliderUI();
+  updateSliderLabel();
 }
 
-function getSliderRange() {
-  if (!allCommits.length) return { start: 0, end: 0 };
-  const N = allCommits.length;
-  const from = Math.floor((1 - sliderState.end) * (N - 1));
-  const to = Math.floor((1 - sliderState.start) * (N - 1));
-  return { start: Math.min(from, to), end: Math.max(from, to) };
+function handleDragEnd() {
+  if (!isDragging) return;
+  isDragging = false;
 }
 
+function onMouseMove(e) { handleDragMove(e); }
+function onMouseUp() { handleDragEnd(); }
+function onTouchMove(e) { handleDragMove(e); }
+function onTouchEnd() { handleDragEnd(); }
+
+handle.addEventListener('mousedown', (e) => {
+  e.stopPropagation();
+  isDragging = true;
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp, { once: true });
+});
+
+handle.addEventListener('touchstart', (e) => {
+  e.stopPropagation();
+  isDragging = true;
+  document.addEventListener('touchmove', onTouchMove);
+  document.addEventListener('touchend', onTouchEnd, { once: true });
+});
+
+// Click-to-jump on slider track
+slider.addEventListener('click', (e) => {
+  if (e.target.classList.contains('dual-slider-handle')) return;
+  sliderPos = getSliderPos(e);
+  updateSliderUI();
+  updateSliderLabel();
+});
+
+// Pagination
 function renderPagination() {
-  const range = getSliderRange();
-  const totalInRange = range.end - range.start + 1;
-  const totalPages = Math.max(1, Math.ceil(totalInRange / COMMITS_PER_PAGE));
+  const totalCommits = allCommits.length;
+  const totalPages = Math.max(1, Math.ceil(totalCommits / COMMITS_PER_PAGE));
   currentPage = Math.min(currentPage, totalPages);
   
   prevBtn.disabled = currentPage <= 1;
   nextBtn.disabled = currentPage >= totalPages;
   pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
   
-  return { startIdx: range.start + (currentPage - 1) * COMMITS_PER_PAGE, endIdx: Math.min(range.start + currentPage * COMMITS_PER_PAGE - 1, range.end) };
+  const startIdx = (currentPage - 1) * COMMITS_PER_PAGE;
+  const endIdx = Math.min(currentPage * COMMITS_PER_PAGE - 1, totalCommits - 1);
+  return { startIdx, endIdx };
 }
 
 function renderCommitTable() {
@@ -75,77 +122,6 @@ function renderCommitTable() {
   document.getElementById('logs-count').textContent = `Logs: ${visible.length} entries (${startIdx + 1}-${endIdx + 1})`;
 }
 
-function handleDragMove(e) {
-  if (!isDragging || !allCommits.length) return;
-  const pos = getSliderPos(e);
-  if (isDragging === 'left') {
-    sliderState.start = Math.min(pos, sliderState.end - 0.02);
-  } else {
-    sliderState.end = Math.max(pos, sliderState.start + 0.02);
-  }
-  updateSliderUI();
-  updateSliderLabels();
-}
-
-function handleDragEnd() {
-  if (!isDragging) return;
-  isDragging = null;
-  currentPage = 1;
-  renderCommitTable();
-}
-
-// Slider events
-function onMouseMove(e) { handleDragMove(e); }
-function onMouseUp() { handleDragEnd(); }
-function onTouchMove(e) { handleDragMove(e); }
-function onTouchEnd() { handleDragEnd(); }
-
-handleLeft.addEventListener('mousedown', (e) => {
-  e.stopPropagation();
-  isDragging = 'left';
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp, { once: true });
-});
-
-handleRight.addEventListener('mousedown', (e) => {
-  e.stopPropagation();
-  isDragging = 'right';
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp, { once: true });
-});
-
-handleLeft.addEventListener('touchstart', (e) => {
-  e.stopPropagation();
-  isDragging = 'left';
-  document.addEventListener('touchmove', onTouchMove);
-  document.addEventListener('touchend', onTouchEnd, { once: true });
-});
-
-handleRight.addEventListener('touchstart', (e) => {
-  e.stopPropagation();
-  isDragging = 'right';
-  document.addEventListener('touchmove', onTouchMove);
-  document.addEventListener('touchend', onTouchEnd, { once: true });
-});
-
-// Click-to-jump on slider track
-slider.addEventListener('click', (e) => {
-  if (e.target.classList.contains('dual-slider-handle')) return;
-  if (!allCommits.length) return;
-  const pos = getSliderPos(e);
-  const distLeft = Math.abs(pos - sliderState.start);
-  const distRight = Math.abs(pos - sliderState.end);
-  if (distLeft < distRight) {
-    sliderState.start = Math.min(pos, sliderState.end - 0.02);
-  } else {
-    sliderState.end = Math.max(pos, sliderState.start + 0.02);
-  }
-  updateSliderUI();
-  updateSliderLabels();
-  currentPage = 1;
-  renderCommitTable();
-});
-
 // Pagination controls
 prevBtn.addEventListener('click', () => {
   if (currentPage > 1) {
@@ -155,13 +131,60 @@ prevBtn.addEventListener('click', () => {
 });
 
 nextBtn.addEventListener('click', () => {
-  const range = getSliderRange();
-  const totalPages = Math.ceil((range.end - range.start + 1) / COMMITS_PER_PAGE);
+  const totalPages = Math.ceil(allCommits.length / COMMITS_PER_PAGE);
   if (currentPage < totalPages) {
     currentPage++;
     renderCommitTable();
   }
 });
+
+// Loading overlay
+function showLoading(text) {
+  loadingText.textContent = text;
+  loadingOverlay.classList.remove('hidden');
+}
+
+function hideLoading() {
+  loadingOverlay.classList.add('hidden');
+}
+
+// Toast
+function showToast(message, duration = 3000) {
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  toast.style.pointerEvents = 'auto';
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.pointerEvents = 'none';
+  }, duration);
+}
+
+// Cooldown
+function startCooldown() {
+  cooldownSeconds = COOLDOWN_DURATION;
+  decodeBtn.disabled = true;
+  decodeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  
+  function tick() {
+    if (cooldownSeconds > 0) {
+      decodeBtn.innerHTML = `Decoding... ${cooldownSeconds}s <span class="text-lg leading-none">⚡</span>`;
+      cooldownSeconds--;
+      cooldownTimer = setTimeout(tick, 1000);
+    } else {
+      endCooldown();
+    }
+  }
+  tick();
+}
+
+function endCooldown() {
+  if (cooldownTimer) clearTimeout(cooldownTimer);
+  cooldownTimer = null;
+  cooldownSeconds = 0;
+  decodeBtn.disabled = false;
+  decodeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  decodeBtn.innerHTML = `Initialize_Decoding <span class="text-lg leading-none">⚡</span>`;
+}
 
 // Helpers
 function formatNumber(num) {
@@ -239,7 +262,6 @@ function generateCommitSummary(message) {
   const title = lines[0];
   const body = lines.slice(1).join('\n').trim();
   
-  // Parse conventional commit
   const match = title.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.*)$/);
   if (!match) {
     return { summary: title, body: body };
@@ -344,6 +366,9 @@ async function safeFetch(url, label) {
     const res = await fetch(url);
     if (!res.ok) {
       console.error(`[${label}] HTTP ${res.status}: ${res.statusText}`);
+      if (res.status === 403) {
+        return { ok: false, status: 403, data: null, rateLimited: true };
+      }
       return { ok: false, status: res.status, data: null };
     }
     const data = await res.json();
@@ -362,6 +387,11 @@ document.getElementById('decode').addEventListener('click', async () => {
     return;
   }
 
+  if (cooldownSeconds > 0) {
+    showToast(`Backend is processing. Please wait ${cooldownSeconds}s.`, 2000);
+    return;
+  }
+
   const replacedURL = repoURL.replace('https://github.com/', '');
   const [owner, repo] = replacedURL.split('/');
   if (!owner || !repo) {
@@ -369,13 +399,16 @@ document.getElementById('decode').addEventListener('click', async () => {
     return;
   }
   const cleanRepo = repo.replace('.git', '');
+  const commitCount = getCommitCountFromSlider();
 
-  console.log(`Decoding ${owner}/${cleanRepo}`);
+  console.log(`Decoding ${owner}/${cleanRepo} (fetching ${commitCount} commits)`);
+  startCooldown();
+  showLoading('Decoding Repository...');
 
   const base = `https://api.github.com/repos/${owner}/${cleanRepo}`;
 
   const [commits, meta, lang, contrib, tags, activity, totalCommits] = await Promise.all([
-    safeFetch(`${base}/commits?per_page=100`, 'commits'),
+    safeFetch(`${base}/commits?per_page=${commitCount}`, 'commits'),
     safeFetch(`${base}`, 'meta'),
     safeFetch(`${base}/languages`, 'languages'),
     safeFetch(`${base}/contributors?per_page=5`, 'contributors'),
@@ -384,7 +417,18 @@ document.getElementById('decode').addEventListener('click', async () => {
     safeFetch(`${base}/commits?per_page=1`, 'totalCommits')
   ]);
 
+  // Check for rate limiting
+  if (commits.rateLimited || meta.rateLimited) {
+    hideLoading();
+    endCooldown();
+    showToast('GitHub API rate limit reached (403). Please wait a few minutes before trying again.', 6000);
+    alert('GitHub API rate limit reached. You can only make ~60 unauthenticated requests per hour. Please wait a few minutes.');
+    return;
+  }
+
   if (!commits.ok) {
+    hideLoading();
+    endCooldown();
     alert(`Failed to fetch commits. GitHub responded: ${commits.status || 'Network Error'}. Check the URL or try again later.`);
     return;
   }
@@ -481,19 +525,17 @@ document.getElementById('decode').addEventListener('click', async () => {
     });
   }
 
-  // Initialize slider and render table
-  sliderState = { start: 0, end: 1 };
+  // Render table
   currentPage = 1;
-  updateSliderUI();
-  updateSliderLabels();
   renderCommitTable();
+  hideLoading();
 
-  // AI Summary: send only commits in the slider range
-  const range = getSliderRange();
-  const rangeCommits = allCommits.slice(range.start, range.end + 1);
-  const summaryCommit = rangeCommits
+  // AI Summary
+  const summaryCommit = allCommits
     .slice(0, 20)
     .map(c => c.commit.message.split('\n')[0].substring(0, 100));
+  
+  showLoading('Generating Summary...');
   
   try {
     const res = await fetch('https://git-translator-production.up.railway.app/summarize', {
@@ -501,27 +543,47 @@ document.getElementById('decode').addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commits: summaryCommit })
     });
+    
     if (res.ok) {
       const result = await res.json();
-      renderSummary(result.summary);
+      if (result.summary && result.summary.trim().length > 0) {
+        renderSummary(result.summary);
+        consecutiveErrors = 0;
+      } else {
+        consecutiveErrors++;
+        renderSummary('Backend had an oopsie. Please try again later! x0x0');
+      }
     } else {
-      console.error('Summarizer returned', res.status);
-      renderSummary('Summary unavailable. AI summarizer returned an error.');
+      consecutiveErrors++;
+      if (consecutiveErrors >= 2) {
+        showToast('Backend is overloaded. Please wait 30s before trying again.', 5000);
+        endCooldown();
+      }
+      renderSummary('Backend had an oopsie. Please try again later! x0x0');
     }
   } catch (err) {
     console.error('Summarizer error:', err);
-    renderSummary('Summary unavailable. AI summarizer service is offline.');
+    consecutiveErrors++;
+    if (consecutiveErrors >= 2) {
+      showToast('Backend is overloaded. Please wait 30s before trying again.', 5000);
+      endCooldown();
+    }
+    renderSummary('Backend had an oopsie. Please try again later! x0x0');
   }
+  
+  hideLoading();
 });
 
 // New Analysis reset
 document.getElementById('new-analysis').addEventListener('click', () => {
   document.getElementById('url-input').value = '';
   allCommits = [];
-  sliderState = { start: 0, end: 1 };
+  sliderPos = 0;
   currentPage = 1;
+  consecutiveErrors = 0;
   updateSliderUI();
-  updateSliderLabels();
+  updateSliderLabel();
+  endCooldown();
 
   table.innerHTML = `
     <div id="table-placeholder" class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">
@@ -559,8 +621,8 @@ document.getElementById('new-analysis').addEventListener('click', () => {
     <div class="bar" style="height:0%"></div>
     <div class="bar" style="height:0%"></div>`;
   document.getElementById('logs-count').textContent = 'Logs: -- entries';
-  document.getElementById('range-start-label').textContent = 'Commit_Range_Start: 0x4f2a';
-  document.getElementById('range-end-label').textContent = 'Commit_Range_End: HEAD';
+  document.getElementById('range-start-label').textContent = 'Analysis Depth: 100 commits';
+  rangeStatus.style.opacity = '0';
   pageInfo.textContent = 'Page 1 of 1';
   prevBtn.disabled = true;
   nextBtn.disabled = true;
@@ -568,6 +630,10 @@ document.getElementById('new-analysis').addEventListener('click', () => {
 
 // DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize slider
+  updateSliderUI();
+  updateSliderLabel();
+  
   const typewriterElements = document.querySelectorAll('.typewriter-text');
   typewriterElements.forEach(el => runTypewriter(el));
 
