@@ -25,7 +25,8 @@ app.use(cors({
       return callback(new Error('Not allowed by CORS'), false);
     }
     return callback(null, true);
-  }
+  },
+  exposedHeaders: ['Link']
 }));
 
 app.use(express.json());

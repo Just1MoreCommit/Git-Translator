@@ -444,8 +444,8 @@ async function fetchTotalCommits(baseUrl) {
       return parseInt(pages[pages.length - 1][1]);
     }
   }
-  // If no Link header, the repo has 1 or 0 commits
-  return result.data && Array.isArray(result.data) ? result.data.length : 100;
+  // Fallback: repo has 0 or 1 commits, or Link header blocked
+  return 100;
 }
 
 async function fetchCommitsPaginated(baseUrl, count) {
