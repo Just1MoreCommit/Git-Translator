@@ -1,4 +1,3 @@
-require('dotenv').config(); // loads .env file and makes everything inside it availabel via process.env
 const express = require('express'); //importing packages
 const cors = require('cors'); //importing packages
 
@@ -31,16 +30,18 @@ app.get('/', (req, res) => {
 });
 
 // GitHub Proxy Route
-// Uses explicit wildcard pattern to match all nested paths
-app.get('/api/github/*', async (req, res) => {
+// Uses app.use to match all nested paths (Express 5 compatible)
+app.use('/api/github', async (req, res) => {
   const githubToken = process.env.GITHUB_TOKEN;
   
   if (!githubToken) {
+    console.log('[Proxy] GITHUB_TOKEN missing, env vars:', Object.keys(process.env).filter(k => k.includes('TOKEN') || k.includes('KEY')));
     return res.status(500).json({ error: 'GITHUB_TOKEN not configured on server' });
   }
   
   // Build the full GitHub URL from the request
-  const githubPath = req.params[0];
+  // req.path includes the path after /api/github
+  const githubPath = req.path.substring(1); // Remove leading slash
   const queryString = req.url.split('?')[1] || '';
   const githubUrl = `https://api.github.com/${githubPath}${queryString ? '?' + queryString : ''}`;
   
