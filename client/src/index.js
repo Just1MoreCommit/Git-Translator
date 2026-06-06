@@ -17,14 +17,16 @@ const API_BASE = 'https://git-translator-production-5992.up.railway.app';
 
 // State
 let allCommits = [];
-let sliderPos = 0; // 0 = 100 commits, 1 = 10 commits
+let sliderPos = 0; // 0 = max commits, 1 = 10 commits
 let isDragging = false;
 let currentPage = 1;
 let cooldownTimer = null;
 let cooldownSeconds = 0;
 let consecutiveErrors = 0;
+let maxCommits = 100; // dynamically set per repo, capped at 500
 const COMMITS_PER_PAGE = 100;
 const COOLDOWN_DURATION = 10;
+const MAX_FETCHABLE_COMMITS = 500;
 
 // Slider elements
 const slider = document.querySelector('.dual-slider');
@@ -33,8 +35,8 @@ const handle = document.querySelector('.dual-slider-handle');
 const rangeStatus = document.getElementById('range-status');
 
 function getCommitCountFromSlider() {
-  // Map sliderPos (0-1) to commit count (10 up to 100)
-  return Math.max(10, Math.round(10 + (sliderPos * 90)));
+  // Map sliderPos (0-1) to commit count (10 up to maxCommits)
+  return Math.max(10, Math.round(10 + (sliderPos * (maxCommits - 10))));
 }
 
 function updateSliderUI() {
@@ -52,7 +54,7 @@ function updateSliderUI() {
 
 function updateSliderLabel() {
   const count = getCommitCountFromSlider();
-  document.getElementById('range-start-label').textContent = `Analysis Depth: ${count} commits`;
+  document.getElementById('range-start-label').textContent = `Analysis Depth: ${count} commits (max: ${maxCommits})`;
 }
 
 function getSliderPos(e) {
@@ -425,6 +427,43 @@ function renderSummary(result) {
   runTypewriter(p);
 }
 
+async function fetchTotalCommits(baseUrl) {
+  const result = await safeFetch(`${baseUrl}/commits?per_page=1`, 'totalCount');
+  if (!result.ok || !result.headers) return 100;
+  
+  const link = result.headers.get('Link');
+  if (link) {
+    const pages = [...link.matchAll(/page=(\d+)/g)];
+    if (pages.length > 0) {
+      return parseInt(pages[pages.length - 1][1]);
+    }
+  }
+  // If no Link header, the repo has 1 or 0 commits
+  return result.data && Array.isArray(result.data) ? result.data.length : 100;
+}
+
+async function fetchCommitsPaginated(baseUrl, count) {
+  const all = [];
+  let page = 1;
+  const perPage = 100;
+  
+  while (all.length < count) {
+    const remaining = count - all.length;
+    const currentPerPage = Math.min(perPage, remaining);
+    const result = await safeFetch(
+      `${baseUrl}/commits?per_page=${currentPerPage}&page=${page}`,
+      `commits-page-${page}`
+    );
+    if (!result.ok) return result;
+    if (!Array.isArray(result.data) || result.data.length === 0) break;
+    
+    all.push(...result.data);
+    if (result.data.length < currentPerPage) break;
+    page++;
+  }
+  return { ok: true, data: all, headers: null };
+}
+
 async function safeFetch(url, label) {
   try {
     // Replace direct GitHub API calls with backend proxy
@@ -467,22 +506,30 @@ document.getElementById('decode').addEventListener('click', async () => {
     return;
   }
   const cleanRepo = repo.replace('.git', '');
-  const commitCount = getCommitCountFromSlider();
-
-  console.log(`Decoding ${owner}/${cleanRepo} (fetching ${commitCount} commits)`);
   startCooldown();
   showLoading('Decoding Repository...');
 
   const base = `https://api.github.com/repos/${owner}/${cleanRepo}`;
 
-  const [commits, meta, lang, contrib, tags, activity, totalCommits] = await Promise.all([
-    safeFetch(`${base}/commits?per_page=${commitCount}`, 'commits'),
+  // Phase 1: fetch repo metadata to get total commit count for dynamic slider
+  showLoading('Reading Repository Metadata...');
+  const totalCount = await fetchTotalCommits(base);
+  maxCommits = Math.min(totalCount, MAX_FETCHABLE_COMMITS);
+  // Update slider so user can see the actual range
+  updateSliderLabel();
+
+  const commitCount = getCommitCountFromSlider();
+  console.log(`Decoding ${owner}/${cleanRepo} (fetching ${commitCount} of ${totalCount} commits)`);
+
+  // Phase 2: fetch commits (paginated) + other repo data in parallel
+  showLoading(`Fetching ${commitCount} commits...`);
+  const [commits, meta, lang, contrib, tags, activity] = await Promise.all([
+    fetchCommitsPaginated(base, commitCount),
     safeFetch(`${base}`, 'meta'),
     safeFetch(`${base}/languages`, 'languages'),
     safeFetch(`${base}/contributors?per_page=5`, 'contributors'),
     safeFetch(`${base}/tags?per_page=1`, 'tags'),
-    safeFetch(`${base}/stats/commit_activity`, 'activity'),
-    safeFetch(`${base}/commits?per_page=1`, 'totalCommits')
+    safeFetch(`${base}/stats/commit_activity`, 'activity')
   ]);
 
   // Check for rate limiting
@@ -503,22 +550,8 @@ document.getElementById('decode').addEventListener('click', async () => {
 
   allCommits = commits.data;
 
-  // Total commits from Link header
-  let totalCommitCount = allCommits.length;
-  if (totalCommits.ok && totalCommits.headers) {
-    const link = totalCommits.headers.get('Link');
-    console.log('[totalCommits] Link header:', link);
-    if (link) {
-      const allPages = [...link.matchAll(/page=(\d+)/g)];
-      if (allPages.length > 0) {
-        totalCommitCount = parseInt(allPages[allPages.length - 1][1]);
-        console.log('[totalCommits] Parsed total:', totalCommitCount);
-      }
-    }
-  }
-  if (totalCommitCount === 100 && allCommits.length === 100) {
-    totalCommitCount = '100+';
-  }
+  // Total commits for display (actual total, not capped)
+  const totalCommitCount = totalCount;
 
   // Update Protocol Summary
   document.getElementById('total-commits').textContent = totalCommitCount;
