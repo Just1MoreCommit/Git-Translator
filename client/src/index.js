@@ -518,8 +518,8 @@ document.getElementById('decode').addEventListener('click', async () => {
   }
 
   // Update Activity Chart
+  const barChart = document.getElementById('bar-chart');
   if (activity.ok && activity.data.length > 0) {
-    const barChart = document.getElementById('bar-chart');
     barChart.innerHTML = '';
     const last7 = activity.data.slice(-7);
     const maxTotal = Math.max(...last7.map(w => w.total), 1);
@@ -531,6 +531,12 @@ document.getElementById('decode').addEventListener('click', async () => {
       if (week.total === maxTotal && week.total > 0) bar.classList.add('active');
       barChart.appendChild(bar);
     });
+  } else {
+    // Show empty state when no activity data available
+    barChart.innerHTML = `
+      <div class="flex items-center justify-center w-full h-full text-[10px] font-mono text-gray-500 uppercase tracking-wider">
+        No data yet
+      </div>`;
   }
 
   // Render table

@@ -49,7 +49,8 @@ app.use('/api/github', async (req, res) => {
   const pathParts = githubPath.split('/');
   const owner = pathParts[1] || 'unknown';
   const repo = pathParts[2] || 'unknown';
-  const cacheKey = getCacheKey(owner, repo, githubPath);
+  // Include query string in cache key so different per_page values don't collide
+  const cacheKey = getCacheKey(owner, repo, githubPath + (queryString ? '?' + queryString : ''));
   
   // Check cache first
   const cached = cache.get(cacheKey);
