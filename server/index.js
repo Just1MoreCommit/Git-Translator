@@ -38,9 +38,6 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' }
 });
-app.use('/api/', limiter);
-app.use('/summarize', limiter);
-
 // ============================================
 // CACHING SETUP
 // ============================================
@@ -74,7 +71,7 @@ app.get('/', (req, res) => {
 // Only allow specific safe endpoints to prevent SSRF
 const ALLOWED_GITHUB_PATHS = /^repos\/[^\/]+\/[^\/]+\/(commits|languages|contributors|tags|stats\/commit_activity)(\/.*)?$/;
 
-app.use('/api/github', async (req, res) => {
+app.use('/api/github', limiter, async (req, res) => {
   const githubToken = process.env.GITHUB_TOKEN;
   
   if (!githubToken) {
@@ -146,7 +143,7 @@ app.use('/api/github', async (req, res) => {
   }
 });
 
-app.post('/summarize', async (req, res) => {
+app.post('/summarize', limiter, async (req, res) => {
   const { commits } = req.body;
   
   // Input validation
