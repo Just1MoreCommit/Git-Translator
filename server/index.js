@@ -82,9 +82,6 @@ app.use('/api/github', async (req, res) => {
     return res.status(500).json({ error: 'Server configuration error' });
   }
   
-  // Log token prefix (safe) for debugging on Railway
-  console.log(`[Proxy] Using GITHUB_TOKEN prefix: ${githubToken.substring(0, 4)}...`);
-  
   const githubPath = req.path.substring(1);
   const queryString = req.url.split('?')[1] || '';
   
@@ -123,6 +120,11 @@ app.use('/api/github', async (req, res) => {
     });
     
     const data = await response.json();
+    
+    // Log GitHub errors for debugging
+    if (response.status === 401 || response.status === 403) {
+      console.error(`[Proxy] GitHub ${response.status} for ${githubUrl}:`, JSON.stringify(data));
+    }
     
     setCache(cacheKey, {
       data,
@@ -205,6 +207,37 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+async function validateGitHubToken() {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    console.error('[Startup] GITHUB_TOKEN is missing. GitHub API calls will fail.');
+    return;
+  }
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'Gitly-App',
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    if (res.status === 200) {
+      const user = await res.json();
+      console.log(`[Startup] GitHub token is valid. Authenticated as: ${user.login}`);
+    } else if (res.status === 401) {
+      console.error('[Startup] GitHub token is INVALID or REVOKED (401). Check your Railway env var.');
+    } else if (res.status === 403) {
+      const body = await res.json();
+      console.error('[Startup] GitHub token returned 403:', JSON.stringify(body));
+    } else {
+      console.error(`[Startup] GitHub token check returned ${res.status}`);
+    }
+  } catch (err) {
+    console.error('[Startup] Failed to validate GitHub token:', err.message);
+  }
+}
+
 app.listen(process.env.PORT || 3000, () => {
     console.log('server running on port 3000');
+    validateGitHubToken();
 });
