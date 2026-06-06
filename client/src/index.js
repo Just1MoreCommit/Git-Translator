@@ -11,6 +11,10 @@ const loadingText = document.getElementById('loading-text');
 const toast = document.getElementById('toast');
 const decodeBtn = document.getElementById('decode');
 
+// Backend API URL — hardcoded for now
+// TODO: Make this configurable (env var or config file)
+const API_BASE = 'https://git-translator-production.up.railway.app';
+
 // State
 let allCommits = [];
 let sliderPos = 0; // 0 = 100 commits, 1 = 10 commits
@@ -363,7 +367,11 @@ function renderSummary(result) {
 
 async function safeFetch(url, label) {
   try {
-    const res = await fetch(url);
+    // Replace direct GitHub API calls with backend proxy
+    // The backend adds the GitHub token and handles authentication
+    const proxyUrl = url.replace('https://api.github.com', `${API_BASE}/api/github`);
+    
+    const res = await fetch(proxyUrl);
     if (!res.ok) {
       console.error(`[${label}] HTTP ${res.status}: ${res.statusText}`);
       if (res.status === 403) {
@@ -538,7 +546,7 @@ document.getElementById('decode').addEventListener('click', async () => {
   showLoading('Generating Summary...');
   
   try {
-    const res = await fetch('https://git-translator-production.up.railway.app/summarize', {
+    const res = await fetch(`${API_BASE}/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commits: summaryCommit })
