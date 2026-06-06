@@ -145,9 +145,12 @@ app.use('/api/github', limiter, async (req, res) => {
 });
 
 app.post('/summarize', limiter, async (req, res) => {
-  const { commits } = req.body;
+  const { repoName, commits } = req.body;
   
   // Input validation
+  if (!repoName || typeof repoName !== 'string') {
+    return res.status(400).json({ error: 'repoName must be a non-empty string' });
+  }
   if (!Array.isArray(commits)) {
     return res.status(400).json({ error: 'commits must be an array' });
   }
@@ -169,6 +172,33 @@ app.post('/summarize', limiter, async (req, res) => {
     return res.status(500).json({ error: 'Server configuration error' });
   }
   
+  const promptText = `You are a senior developer writing a concise project briefing for a technical audience.
+
+Analyze the git commit messages from "${repoName}" and produce a structured summary:
+
+## 🎯 Project Purpose
+In 1–2 sentences, infer what this project does based on commit patterns. Focus on end-user value.
+
+## 📈 Evolution Timeline
+In 2–3 sentences, describe major phases (scaffolding → buildout → polish → maintenance). Reference specific commits only at clear turning points.
+
+## 🔥 Recent Focus
+In 1–2 sentences, summarize active development areas right now.
+
+## 🏷️ Key Themes
+List 3–5 dominant work categories as inline comma-separated tags (e.g., "UI overhaul, API integration, performance tuning").
+
+Rules:
+- Be specific. Avoid generic filler like "various improvements."
+- Infer intent from terse commits (e.g., "fix typo" → docs polish).
+- If a section cannot be confidently inferred, say so briefly.
+- Keep total response under 250 words.
+- Write like a senior engineer briefing a CTO — confident, no fluff.
+- No code blocks. No bullet lists. Use inline text only.
+
+Commit messages (oldest → newest):
+${commits.join('\n')}`;
+  
   try {
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
       method: 'POST',
@@ -176,7 +206,7 @@ app.post('/summarize', limiter, async (req, res) => {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `Here are git commit messages from a project. Write a clear, well structured paragraph in plain English explaining what this project does, how it evolved over time, and what was recently worked on:\n\n${commits.join('\n')}`
+            text: promptText
           }]
         }]
       })

@@ -642,7 +642,7 @@ document.getElementById('decode').addEventListener('click', async () => {
     const res = await fetch(`${API_BASE}/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commits: summaryCommit })
+      body: JSON.stringify({ repoName: `${owner}/${cleanRepo}`, commits: summaryCommit })
     });
     
     if (res.ok) {
