@@ -121,7 +121,7 @@ function renderCommitTable() {
   if (!allCommits.length) return;
   const { startIdx, endIdx } = renderPagination();
   const visible = allCommits.slice(startIdx, endIdx + 1);
-  table.innerHTML = '';
+  while (table.firstChild) table.removeChild(table.firstChild);
   visible.forEach(commit => renderCommit(commit));
   document.getElementById('logs-count').textContent = `Logs: ${visible.length} entries (${startIdx + 1}-${endIdx + 1})`;
 }
@@ -171,7 +171,11 @@ function startCooldown() {
   
   function tick() {
     if (cooldownSeconds > 0) {
-      decodeBtn.innerHTML = `Decoding... ${cooldownSeconds}s <span class="text-lg leading-none">⚡</span>`;
+      decodeBtn.textContent = `Decoding... ${cooldownSeconds}s `;
+      const span = document.createElement('span');
+      span.className = 'text-lg leading-none';
+      span.textContent = '⚡';
+      decodeBtn.appendChild(span);
       cooldownSeconds--;
       cooldownTimer = setTimeout(tick, 1000);
     } else {
@@ -187,7 +191,11 @@ function endCooldown() {
   cooldownSeconds = 0;
   decodeBtn.disabled = false;
   decodeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-  decodeBtn.innerHTML = `Initialize_Decoding <span class="text-lg leading-none">⚡</span>`;
+  decodeBtn.textContent = 'Initialize_Decoding ';
+  const span = document.createElement('span');
+  span.className = 'text-lg leading-none';
+  span.textContent = '⚡';
+  decodeBtn.appendChild(span);
 }
 
 // Helpers
@@ -317,22 +325,74 @@ function renderCommit(commit) {
   
   const card = document.createElement('div');
   card.className = 'commit-row bg-[#050505] w-full flex flex-row items-start justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer';
-  card.innerHTML = `
-    <p class="font-mono text-xs text-[#7c3aed] uppercase tracking-wider min-w-[70px] pt-0.5 flex-shrink-0">#${sha}</p>
-    <div class="flex-1 flex flex-col gap-1 min-w-0 overflow-hidden">
-      <div class="flex flex-row items-center gap-3 min-w-0">
-        <span class="text-[10px] font-mono uppercase tracking-wider font-bold flex-shrink-0" style="color:${color}">${area}</span>
-        <p class="text-sm font-sans text-white truncate">${commit.commit.message.split('\n')[0]}</p>
-      </div>
-      <p class="text-xs font-mono text-gray-400 leading-relaxed">${summary}</p>
-      ${hasBody ? `<div id="${summaryId}" class="hidden mt-1"><p class="text-[10px] font-mono text-gray-500 leading-relaxed whitespace-pre-wrap">${body}</p></div>
-      <button class="read-more text-[10px] font-mono text-[#7c3aed] hover:text-white transition-colors mt-1 text-left" onclick="this.previousElementSibling.classList.toggle('hidden'); this.textContent = this.previousElementSibling.classList.contains('hidden') ? 'Read more' : 'Show less'">Read more</button>` : ''}
-    </div>
-    <div class="flex flex-col items-end gap-1 min-w-[80px] flex-shrink-0">
-      <p class="text-xs font-mono text-gray-500 uppercase">${timeAgo(date)}</p>
-      <p class="text-xs font-mono text-gray-400">@${author}</p>
-    </div>
-  `;
+  
+  const shaP = document.createElement('p');
+  shaP.className = 'font-mono text-xs text-[#7c3aed] uppercase tracking-wider min-w-[70px] pt-0.5 flex-shrink-0';
+  shaP.textContent = `#${sha}`;
+  card.appendChild(shaP);
+  
+  const flexCol = document.createElement('div');
+  flexCol.className = 'flex-1 flex flex-col gap-1 min-w-0 overflow-hidden';
+  
+  const headerRow = document.createElement('div');
+  headerRow.className = 'flex flex-row items-center gap-3 min-w-0';
+  
+  const areaSpan = document.createElement('span');
+  areaSpan.className = 'text-[10px] font-mono uppercase tracking-wider font-bold flex-shrink-0';
+  areaSpan.style.color = color;
+  areaSpan.textContent = area;
+  headerRow.appendChild(areaSpan);
+  
+  const titleP = document.createElement('p');
+  titleP.className = 'text-sm font-sans text-white truncate';
+  titleP.textContent = commit.commit.message.split('\n')[0];
+  headerRow.appendChild(titleP);
+  
+  flexCol.appendChild(headerRow);
+  
+  const summaryP = document.createElement('p');
+  summaryP.className = 'text-xs font-mono text-gray-400 leading-relaxed';
+  summaryP.textContent = summary;
+  flexCol.appendChild(summaryP);
+  
+  if (hasBody) {
+    const bodyDiv = document.createElement('div');
+    bodyDiv.id = summaryId;
+    bodyDiv.className = 'hidden mt-1';
+    
+    const bodyP = document.createElement('p');
+    bodyP.className = 'text-[10px] font-mono text-gray-500 leading-relaxed whitespace-pre-wrap';
+    bodyP.textContent = body;
+    bodyDiv.appendChild(bodyP);
+    flexCol.appendChild(bodyDiv);
+    
+    const readMoreBtn = document.createElement('button');
+    readMoreBtn.className = 'read-more text-[10px] font-mono text-[#7c3aed] hover:text-white transition-colors mt-1 text-left';
+    readMoreBtn.textContent = 'Read more';
+    readMoreBtn.addEventListener('click', function() {
+      bodyDiv.classList.toggle('hidden');
+      this.textContent = bodyDiv.classList.contains('hidden') ? 'Read more' : 'Show less';
+    });
+    flexCol.appendChild(readMoreBtn);
+  }
+  
+  card.appendChild(flexCol);
+  
+  const rightCol = document.createElement('div');
+  rightCol.className = 'flex flex-col items-end gap-1 min-w-[80px] flex-shrink-0';
+  
+  const timeP = document.createElement('p');
+  timeP.className = 'text-xs font-mono text-gray-500 uppercase';
+  timeP.textContent = timeAgo(date);
+  rightCol.appendChild(timeP);
+  
+  const authorP = document.createElement('p');
+  authorP.className = 'text-xs font-mono text-gray-400';
+  authorP.textContent = `@${author}`;
+  rightCol.appendChild(authorP);
+  
+  card.appendChild(rightCol);
+  
   table.appendChild(card);
 }
 
@@ -356,7 +416,7 @@ function runTypewriter(el) {
 
 function renderSummary(result) {
   const summaryField = document.getElementById('summaryField');
-  summaryField.innerHTML = '';
+  while (summaryField.firstChild) summaryField.removeChild(summaryField.firstChild);
   summaryField.className = 'border-l-2 border-[#7c3aed] pl-4';
   const p = document.createElement('p');
   p.className = 'text-xs font-mono text-gray-400 leading-relaxed typewriter-text';
@@ -481,8 +541,8 @@ document.getElementById('decode').addEventListener('click', async () => {
     const langBar = document.getElementById('lang-bar');
     const langLegend = document.getElementById('lang-legend');
     const langColors = ['#7c3aed', '#a78bfa', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
-    langBar.innerHTML = '';
-    langLegend.innerHTML = '';
+    while (langBar.firstChild) langBar.removeChild(langBar.firstChild);
+    while (langLegend.firstChild) langLegend.removeChild(langLegend.firstChild);
     languages.forEach((l, i) => {
       const fill = document.createElement('div');
       fill.className = 'lang-fill';
@@ -491,7 +551,11 @@ document.getElementById('decode').addEventListener('click', async () => {
       langBar.appendChild(fill);
       const legendItem = document.createElement('span');
       legendItem.className = 'flex items-center gap-1';
-      legendItem.innerHTML = `<span class="w-1.5 h-1.5 inline-block" style="background:${langColors[i % langColors.length]}"></span> ${l.name} (${l.pct.toFixed(1)}%)`;
+      const dot = document.createElement('span');
+      dot.className = 'w-1.5 h-1.5 inline-block';
+      dot.style.background = langColors[i % langColors.length];
+      legendItem.appendChild(dot);
+      legendItem.appendChild(document.createTextNode(` ${l.name} (${l.pct.toFixed(1)}%)`));
       langLegend.appendChild(legendItem);
     });
   }
@@ -499,20 +563,38 @@ document.getElementById('decode').addEventListener('click', async () => {
   // Update Contributors
   if (contrib.ok && contrib.data.length > 0) {
     const contributorsList = document.getElementById('contributors-list');
-    contributorsList.innerHTML = '';
+    while (contributorsList.firstChild) contributorsList.removeChild(contributorsList.firstChild);
     const top3 = contrib.data.slice(0, 3);
     top3.forEach(c => {
       const div = document.createElement('div');
       div.className = 'flex items-center justify-between';
-      div.innerHTML = `
-        <div class="flex items-center gap-2">
-          <div class="w-5 h-5 bg-[#0e0e0e] border border-white/10 overflow-hidden">
-            ${c.avatar_url ? `<img src="${c.avatar_url}" class="w-full h-full object-cover" alt="">` : ''}
-          </div>
-          <span class="text-xs font-mono text-white">${c.login || 'unknown'}</span>
-        </div>
-        <span class="text-[10px] font-mono text-[#7c3aed]">${c.contributions} commits</span>
-      `;
+
+      const leftDiv = document.createElement('div');
+      leftDiv.className = 'flex items-center gap-2';
+
+      const avatarDiv = document.createElement('div');
+      avatarDiv.className = 'w-5 h-5 bg-[#0e0e0e] border border-white/10 overflow-hidden';
+      if (c.avatar_url) {
+        const img = document.createElement('img');
+        img.src = c.avatar_url;
+        img.className = 'w-full h-full object-cover';
+        img.alt = '';
+        avatarDiv.appendChild(img);
+      }
+      leftDiv.appendChild(avatarDiv);
+
+      const loginSpan = document.createElement('span');
+      loginSpan.className = 'text-xs font-mono text-white';
+      loginSpan.textContent = c.login || 'unknown';
+      leftDiv.appendChild(loginSpan);
+
+      div.appendChild(leftDiv);
+
+      const contribSpan = document.createElement('span');
+      contribSpan.className = 'text-[10px] font-mono text-[#7c3aed]';
+      contribSpan.textContent = `${c.contributions} commits`;
+      div.appendChild(contribSpan);
+
       contributorsList.appendChild(div);
     });
   }
@@ -520,7 +602,7 @@ document.getElementById('decode').addEventListener('click', async () => {
   // Update Activity Chart
   const barChart = document.getElementById('bar-chart');
   if (activity.ok && activity.data.length > 0) {
-    barChart.innerHTML = '';
+    while (barChart.firstChild) barChart.removeChild(barChart.firstChild);
     const last7 = activity.data.slice(-7);
     const maxTotal = Math.max(...last7.map(w => w.total), 1);
     last7.forEach((week) => {
@@ -533,10 +615,11 @@ document.getElementById('decode').addEventListener('click', async () => {
     });
   } else {
     // Show empty state when no activity data available
-    barChart.innerHTML = `
-      <div class="flex items-center justify-center w-full h-full text-[10px] font-mono text-gray-500 uppercase tracking-wider">
-        No data yet
-      </div>`;
+    while (barChart.firstChild) barChart.removeChild(barChart.firstChild);
+    const noDataDiv = document.createElement('div');
+    noDataDiv.className = 'flex items-center justify-center w-full h-full text-[10px] font-mono text-gray-500 uppercase tracking-wider';
+    noDataDiv.textContent = 'No data yet';
+    barChart.appendChild(noDataDiv);
   }
 
   // Render table
@@ -599,16 +682,19 @@ document.getElementById('new-analysis').addEventListener('click', () => {
   updateSliderLabel();
   endCooldown();
 
-  table.innerHTML = `
-    <div id="table-placeholder" class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">
-      Awaiting_Input // No_Data
-    </div>`;
+  while (table.firstChild) table.removeChild(table.firstChild);
+  const placeholder = document.createElement('div');
+  placeholder.id = 'table-placeholder';
+  placeholder.className = 'commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider';
+  placeholder.textContent = 'Awaiting_Input // No_Data';
+  table.appendChild(placeholder);
 
-  document.getElementById('summaryField').innerHTML = `
-    <p class="text-xs font-mono text-gray-400 leading-relaxed typewriter-text">
-      Branch 'main' exhibits high commit density with localized fragmentation in the
-      core/stream module. Architecture remains stable despite recent merge volatility.
-    </p>`;
+  const summaryField = document.getElementById('summaryField');
+  while (summaryField.firstChild) summaryField.removeChild(summaryField.firstChild);
+  const defaultP = document.createElement('p');
+  defaultP.className = 'text-xs font-mono text-gray-400 leading-relaxed typewriter-text';
+  defaultP.textContent = "Branch 'main' exhibits high commit density with localized fragmentation in the core/stream module. Architecture remains stable despite recent merge volatility.";
+  summaryField.appendChild(defaultP);
 
   ['total-commits', 'authors-count', 'latest-tag'].forEach(id => {
     document.getElementById(id).textContent = '--';
@@ -616,24 +702,40 @@ document.getElementById('new-analysis').addEventListener('click', () => {
   document.getElementById('repo-name').textContent = 'Gitly/Core';
   document.getElementById('repo-stars').textContent = '★ --';
   document.getElementById('repo-forks').textContent = '⑂ --';
-  document.getElementById('lang-bar').innerHTML = '';
-  document.getElementById('lang-legend').innerHTML = '';
-  document.getElementById('contributors-list').innerHTML = `
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <div class="w-5 h-5 bg-[#0e0e0e] border border-white/10"></div>
-        <span class="text-xs font-mono text-white">--</span>
-      </div>
-      <span class="text-[10px] font-mono text-[#7c3aed]">-- commits</span>
-    </div>`;
-  document.getElementById('bar-chart').innerHTML = `
-    <div class="bar" style="height:0%"></div>
-    <div class="bar" style="height:0%"></div>
-    <div class="bar" style="height:0%"></div>
-    <div class="bar" style="height:0%"></div>
-    <div class="bar" style="height:0%"></div>
-    <div class="bar" style="height:0%"></div>
-    <div class="bar" style="height:0%"></div>`;
+
+  const langBarEl = document.getElementById('lang-bar');
+  while (langBarEl.firstChild) langBarEl.removeChild(langBarEl.firstChild);
+  const langLegendEl = document.getElementById('lang-legend');
+  while (langLegendEl.firstChild) langLegendEl.removeChild(langLegendEl.firstChild);
+
+  const contribList = document.getElementById('contributors-list');
+  while (contribList.firstChild) contribList.removeChild(contribList.firstChild);
+  const contribPlaceholder = document.createElement('div');
+  contribPlaceholder.className = 'flex items-center justify-between';
+  const contribLeft = document.createElement('div');
+  contribLeft.className = 'flex items-center gap-2';
+  const contribAvatar = document.createElement('div');
+  contribAvatar.className = 'w-5 h-5 bg-[#0e0e0e] border border-white/10';
+  const contribName = document.createElement('span');
+  contribName.className = 'text-xs font-mono text-white';
+  contribName.textContent = '--';
+  contribLeft.appendChild(contribAvatar);
+  contribLeft.appendChild(contribName);
+  const contribRight = document.createElement('span');
+  contribRight.className = 'text-[10px] font-mono text-[#7c3aed]';
+  contribRight.textContent = '-- commits';
+  contribPlaceholder.appendChild(contribLeft);
+  contribPlaceholder.appendChild(contribRight);
+  contribList.appendChild(contribPlaceholder);
+
+  const barChartEl = document.getElementById('bar-chart');
+  while (barChartEl.firstChild) barChartEl.removeChild(barChartEl.firstChild);
+  for (let i = 0; i < 7; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = '0%';
+    barChartEl.appendChild(bar);
+  }
   document.getElementById('logs-count').textContent = 'Logs: -- entries';
   document.getElementById('range-start-label').textContent = 'Analysis Depth: 10 commits';
   rangeStatus.style.opacity = '0';

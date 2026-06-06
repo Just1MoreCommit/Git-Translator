@@ -1,19 +1,52 @@
-const express = require('express'); //importing packages
-const cors = require('cors'); //importing packages
+require('dotenv').config();
 
-const app = express(); //Creates the actual express application. express() returns app object with all methods like defining routes, starting server, etc.
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
-app.use(cors()); //Middleware, this tells express to allow requests from different origins
-app.use(express.json()); //tells express to automatically parse incoming request bodies as JSON. Wihtout this, when frontedn sends data, express wouldnt know how to read it
+const app = express();
+
+// Security headers
+app.use(helmet());
+
+// CORS: allow only specific origins
+const ALLOWED_ORIGINS = [
+  'https://gitly-tau.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
+      return callback(new Error('Not allowed by CORS'), false);
+    }
+    return callback(null, true);
+  }
+}));
+
+app.use(express.json());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
+app.use('/summarize', limiter);
 
 // ============================================
 // CACHING SETUP
 // ============================================
-// In-memory cache: key = "owner/repo:endpoint", value = { data, timestamp, linkHeader }
 const cache = new Map();
-
-// Cache TTL: 5 minutes in milliseconds
 const CACHE_TTL = 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 500;
 
 function getCacheKey(owner, repo, endpoint) {
   return `${owner}/${repo}:${endpoint}`;
@@ -21,6 +54,14 @@ function getCacheKey(owner, repo, endpoint) {
 
 function isCacheValid(timestamp) {
   return (Date.now() - timestamp) < CACHE_TTL;
+}
+
+function setCache(key, value) {
+  if (cache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = cache.keys().next().value;
+    cache.delete(oldestKey);
+  }
+  cache.set(key, value);
 }
 // ============================================
 
@@ -30,29 +71,33 @@ app.get('/', (req, res) => {
 });
 
 // GitHub Proxy Route
-// Uses app.use to match all nested paths (Express 5 compatible)
+// Only allow specific safe endpoints to prevent SSRF
+const ALLOWED_GITHUB_PATHS = /^repos\/[^\/]+\/[^\/]+\/(commits|languages|contributors|tags|stats\/commit_activity)(\/.*)?$/;
+
 app.use('/api/github', async (req, res) => {
   const githubToken = process.env.GITHUB_TOKEN;
   
   if (!githubToken) {
-    console.log('[Proxy] GITHUB_TOKEN missing, env vars:', Object.keys(process.env).filter(k => k.includes('TOKEN') || k.includes('KEY')));
-    return res.status(500).json({ error: 'GITHUB_TOKEN not configured on server' });
+    console.error('[Proxy] GITHUB_TOKEN not configured on server');
+    return res.status(500).json({ error: 'Server configuration error' });
   }
   
-  // Build the full GitHub URL from the request
-  // req.path includes the path after /api/github
-  const githubPath = req.path.substring(1); // Remove leading slash
+  const githubPath = req.path.substring(1);
   const queryString = req.url.split('?')[1] || '';
+  
+  // SSRF protection: validate path
+  if (!ALLOWED_GITHUB_PATHS.test(githubPath)) {
+    console.error(`[Proxy] Blocked request to invalid path: ${githubPath}`);
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
   const githubUrl = `https://api.github.com/${githubPath}${queryString ? '?' + queryString : ''}`;
   
-  // Parse owner/repo from the GitHub path for caching
   const pathParts = githubPath.split('/');
   const owner = pathParts[1] || 'unknown';
   const repo = pathParts[2] || 'unknown';
-  // Include query string in cache key so different per_page values don't collide
   const cacheKey = getCacheKey(owner, repo, githubPath + (queryString ? '?' + queryString : ''));
   
-  // Check cache first
   const cached = cache.get(cacheKey);
   if (cached && isCacheValid(cached.timestamp)) {
     console.log(`[Cache] Hit for ${cacheKey}`);
@@ -76,17 +121,14 @@ app.use('/api/github', async (req, res) => {
     
     const data = await response.json();
     
-    // Store in cache after successful fetch
-    cache.set(cacheKey, {
+    setCache(cacheKey, {
       data,
       timestamp: Date.now(),
       linkHeader: response.headers.get('Link')
     });
     
-    // Forward the status code and headers
     res.status(response.status);
     
-    // Forward the Link header if it exists (for pagination)
     const linkHeader = response.headers.get('Link');
     if (linkHeader) {
       res.set('Link', linkHeader);
@@ -95,36 +137,69 @@ app.use('/api/github', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('[Proxy] Error:', err);
-    res.status(500).json({ error: 'Failed to proxy GitHub request', message: err.message });
+    res.status(500).json({ error: 'Failed to proxy GitHub request' });
   }
 });
 
-app.post('/summarize', async (req, res) => { //defines a POST route at /summarize. whne frontend does fetch then this runs.. req: incoming reques contains everything frontend sent. res is the response. backend -> frontend. asyncL api calls take time u need async/await
+app.post('/summarize', async (req, res) => {
   const { commits } = req.body;
-
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GEMINI_API_KEY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `Here are git commit messages from a project. Write a clear, well structured paragraph in plain English explaining what this project does, how it evolved over time, and what was recently worked on:\n\n${commits.join('\n')}`
+  
+  // Input validation
+  if (!Array.isArray(commits)) {
+    return res.status(400).json({ error: 'commits must be an array' });
+  }
+  if (commits.length > 100) {
+    return res.status(400).json({ error: 'commits array exceeds maximum length of 100' });
+  }
+  for (let i = 0; i < commits.length; i++) {
+    if (typeof commits[i] !== 'string') {
+      return res.status(400).json({ error: `commits[${i}] must be a string` });
+    }
+    if (commits[i].length > 500) {
+      return res.status(400).json({ error: `commits[${i}] exceeds maximum length of 500 characters` });
+    }
+  }
+  
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    console.error('[Summarize] GEMINI_API_KEY not configured');
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
+  
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `Here are git commit messages from a project. Write a clear, well structured paragraph in plain English explaining what this project does, how it evolved over time, and what was recently worked on:\n\n${commits.join('\n')}`
+          }]
         }]
-      }]
-    })
-  });
+      })
+    });
+    
+    const data = await response.json();
+    console.log(JSON.stringify(data, null, 2));
+    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!summary) {
+      console.log('Full Gemini response:', JSON.stringify(data, null, 2));
+      return res.status(500).json({ error: 'Could not parse Gemini response' });
+    }
+    
+    res.json({summary});
+  } catch (err) {
+    console.error('[Summarize] Error:', err);
+    res.status(500).json({ error: 'Failed to generate summary' });
+  }
+});
 
-
-  const data = await response.json();
-  console.log(JSON.stringify(data, null, 2));
-  const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!summary) {
-  console.log('Full Gemini response:', JSON.stringify(data, null, 2));
-  return res.status(500).json({ error: 'Could not parse Gemini response' });
-}
-
-res.json({summary});
-
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'Not allowed by CORS' });
+  }
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(process.env.PORT || 3000, () => {
