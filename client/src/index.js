@@ -379,6 +379,26 @@ function getCommitTypeEmoji(message) {
   return '🔹';
 }
 
+function dedupeVerb(str) {
+  return str.replace(/\b(\w+)(\s+\1)+\b/gi, '$1');
+}
+
+function inferContext(title, body) {
+  if (!body || body.length < 3) return '';
+  // Look for file paths
+  const pathRe = /(?:^|[\s(])([a-zA-Z0-9_\-/.]+\.(?:js|ts|jsx|tsx|py|go|rs|java|rb|php|json|yml|yaml|md|css|scss|html|vue|svelte))\b/;
+  const pathMatch = body.match(pathRe);
+  if (pathMatch) return ` in ${pathMatch[1]}`;
+  // Look for "for ...", "to ...", "in ..."
+  const forRe = /(?:\bfor\b|\bto\b|\bin\b)\s+([a-zA-Z0-9_\-/ ]{3,40})/i;
+  const forMatch = body.match(forRe);
+  if (forMatch) return ` for ${forMatch[1].trim()}`;
+  // First sentence fallback
+  const firstSentence = body.split(/[.!?]\s/)[0].trim();
+  if (firstSentence.length > 3 && firstSentence.length < 60 && firstSentence !== title.trim()) return ` — ${firstSentence}`;
+  return '';
+}
+
 function generateCommitSummary(message) {
   const lines = message.split('\n');
   const title = lines[0];
@@ -402,7 +422,9 @@ function generateCommitSummary(message) {
     };
     const action = actionMap[type] || 'Updated';
     const scopeText = scope ? ` in ${scope}` : '';
-    return { summary: truncate(`${action} ${desc}${scopeText}.`), body };
+    let summary = `${action} ${desc}${scopeText}.`;
+    if (desc.length < 4) summary += inferContext(title, body);
+    return { summary: truncate(dedupeVerb(summary)), body };
   }
 
   const rules = [
@@ -411,6 +433,7 @@ function generateCommitSummary(message) {
     [/^merge (?:branch\s+)?['"]?(\S+?)['"]?\s+into\s+['"]?(\S+?)['"]?$/i, (m) => `Merged ${m[1]} into ${m[2]}.`],
     [/^merge (?:branch\s+)?['"]?(\S+?)['"]?$/i, (m) => `Merged branch ${m[1]}.`],
     [/^merge\s+([a-f0-9]{7,40})/i, (m) => `Merged commit ${m[1]}.`],
+    [/^merge remote-tracking branch ['"]?(\S+?)['"]?/i, (m) => `Merged remote-tracking branch ${m[1]}.`],
     [/^revert\s+["'](.+?)["']/i, (m) => `Reverted "${m[1]}".`],
     [/^rollback\s+to\s+v?(\S+)/i, (m) => `Rolled back to v${m[1].replace(/^v/, '')}.`],
     [/^(?:revert|rollback|undo)\s+(.+)/i, (m) => `Reverted ${m[1].trim()}.`],
@@ -452,7 +475,9 @@ function generateCommitSummary(message) {
     [/^(?:add|implement|enable)\s+cach(?:e|ing)\s*(?:for\s+)?(.*)$/i, (m) => m[1] ? `Added caching for ${m[1].trim()}.` : 'Added caching.'],
     [/^(?:add|implement|enable)\s+(?:lazy\s+load(?:ing)?|code\s+split(?:ting)?)\s*(?:for\s+)?(.*)$/i, (m) => m[1] ? `Optimized loading for ${m[1].trim()}.` : 'Optimized loading.'],
     [/^refactor\s*(?::\s*)?(.+)/i, (m) => `Refactored ${m[1].trim()}.`],
+    [/^refactor\s+(hooks|components|utils|api|router|store|context|provider)\b/i, (m) => `Refactored ${m[1]}.`],
     [/^(?:remove|delete|clean\s*up)\s+(?:dead|unused|obsolete)\s+(?:code|imports?|files?)\s*(.*)/i, (m) => m[1] ? `Cleaned up dead code in ${m[1].trim()}.` : 'Cleaned up dead code.'],
+    [/^(?:remove|delete|drop)\s+(?:console\.log|debugger|breakpoint|todo|fixme)\b/i, () => 'Cleaned up debug code.'],
     [/^simplify\s+(.+)/i, (m) => `Simplified ${m[1].trim()}.`],
     [/^(?:rename|move)\s+(\S+)\s+(?:to\s+)(\S+)/i, (m) => `Renamed ${m[1]} → ${m[2]}.`],
     [/^clean\s*up\s*(.*)/i, (m) => m[1] ? `Cleaned up ${m[1].trim()}.` : 'Cleaned up codebase.'],
@@ -466,6 +491,7 @@ function generateCommitSummary(message) {
     [/^(?:wip|draft|🚧)\s*(?::\s*|[-–]\s*)?(.+)/i, (m) => `Work in progress: ${m[1].trim()}.`],
     [/^(?:wip|draft|🚧)$/i, () => 'Work in progress.'],
     [/^add(?:ed)?\s+(.+)/i, (m) => `Added ${m[1].trim()}.`],
+    [/^add\s+(error|exception|validation|auth|authz)\s+(handling|check|support)\b/i, (m) => `Added ${m[1]} ${m[2]}.`],
     [/^(?:remove[d]?|delete[d]?)\s+(.+)/i, (m) => `Removed ${m[1].trim()}.`],
     [/^implement(?:ed)?\s+(.+)/i, (m) => `Implemented ${m[1].trim()}.`],
     [/^(?:improve[d]?|enhance[d]?)\s+(.+)/i, (m) => `Improved ${m[1].trim()}.`],
@@ -475,16 +501,23 @@ function generateCommitSummary(message) {
     [/^(?:enable[d]?|disable[d]?)\s+(.+)/i, (m) => `Toggled ${m[1].trim()}.`],
     [/^replace[d]?\s+(.+)/i, (m) => `Replaced ${m[1].trim()}.`],
     [/^migrate[d]?\s+(.+)/i, (m) => `Migrated ${m[1].trim()}.`],
+    [/^handle\s+(.+)/i, (m) => `Handled ${m[1].trim()}.`],
   ];
 
   for (const [regex, formatter] of rules) {
     const match = raw.match(regex);
     if (match) {
-      return { summary: truncate(formatter(match)), body };
+      let summary = formatter(match);
+      summary = dedupeVerb(summary);
+      if (summary.length < 12) summary += inferContext(title, body);
+      return { summary: truncate(summary), body };
     }
   }
 
-  return { summary: truncate(capitalize(raw) + (raw.endsWith('.') ? '' : '.')), body };
+  let fallback = capitalize(raw) + (raw.endsWith('.') ? '' : '.');
+  fallback = dedupeVerb(fallback);
+  if (fallback.length < 12) fallback += inferContext(title, body);
+  return { summary: truncate(fallback), body };
 }
 
 function renderCommit(commit, container = table) {
