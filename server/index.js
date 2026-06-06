@@ -69,7 +69,7 @@ app.get('/', (req, res) => {
 
 // GitHub Proxy Route
 // Only allow specific safe endpoints to prevent SSRF
-const ALLOWED_GITHUB_PATHS = /^repos\/[^\/]+\/[^\/]+\/(commits|languages|contributors|tags|stats\/commit_activity)(\/.*)?$/;
+const ALLOWED_GITHUB_PATHS = /^repos\/[^\/]+\/[^\/]+(\/(commits|languages|contributors|tags|stats\/commit_activity)(\/.*)?)?$/;
 
 app.use('/api/github', limiter, async (req, res) => {
   const githubToken = process.env.GITHUB_TOKEN;
