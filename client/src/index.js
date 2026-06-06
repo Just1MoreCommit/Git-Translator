@@ -496,17 +496,23 @@ function renderCommit(commit) {
   areaBadge.textContent = `${emoji} ${area}`;
   headerRow.appendChild(areaBadge);
   
+  const rawTitle = commit.commit.message.split('\n')[0];
   const titleP = document.createElement('p');
   titleP.className = 'text-sm font-sans text-white truncate';
-  titleP.textContent = summary;
+  titleP.textContent = rawTitle;
   headerRow.appendChild(titleP);
   
   flexCol.appendChild(headerRow);
   
-  const summaryP = document.createElement('p');
-  summaryP.className = 'text-xs font-mono text-gray-400 leading-relaxed';
-  summaryP.textContent = summary;
-  flexCol.appendChild(summaryP);
+  // Only show generated summary if it differs from raw title
+  const normalizedRaw = rawTitle.toLowerCase().replace(/[.!]$/, '').trim();
+  const normalizedSummary = summary.toLowerCase().replace(/[.!]$/, '').trim();
+  if (normalizedSummary !== normalizedRaw && normalizedSummary.length > 0) {
+    const summaryP = document.createElement('p');
+    summaryP.className = 'text-xs font-mono text-gray-400 leading-relaxed';
+    summaryP.textContent = summary;
+    flexCol.appendChild(summaryP);
+  }
   
   if (hasBody) {
     const bodyDiv = document.createElement('div');
