@@ -578,6 +578,16 @@ function renderSummary(result) {
   while (summaryField.firstChild) summaryField.removeChild(summaryField.firstChild);
   summaryField.className = 'border-l-2 border-[#7c3aed] pl-4 flex flex-col gap-3';
   
+  // FALLBACK: if Gemini returns a plain paragraph (no markdown headers)
+  if (!/^##\s+/m.test(result)) {
+    const p = document.createElement('p');
+    p.className = 'text-xs font-mono text-gray-400 leading-relaxed typewriter-text';
+    p.textContent = result;
+    summaryField.appendChild(p);
+    runTypewriter(p);
+    return;
+  }
+  
   // Parse markdown sections by "## " headers
   const sections = result.split(/\n##\s+/).map(s => s.trim()).filter(Boolean);
   
@@ -591,7 +601,6 @@ function renderSummary(result) {
     headerText = headerText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
     
     const bodyText = lines.slice(1).join(' ').trim();
-    if (!bodyText) return;
     
     const sectionDiv = document.createElement('div');
     sectionDiv.className = 'flex flex-col gap-1';
@@ -623,7 +632,7 @@ function renderSummary(result) {
     } else {
       const body = document.createElement('p');
       body.className = 'text-xs font-mono text-gray-400 leading-relaxed typewriter-text';
-      body.textContent = bodyText;
+      body.textContent = bodyText || 'Insufficient commit data.';
       sectionDiv.appendChild(body);
       runTypewriter(body);
     }
