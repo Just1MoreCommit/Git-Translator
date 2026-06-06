@@ -2,7 +2,6 @@
 
 A focused tool for exploring GitHub repositories: fetches commits and metadata, classifies commit messages, visualizes activity, and generates a short human summary using the Google Generative Language (Gemini) API.
 
-![Gitly UI screenshot](client/dist/Gitly.png)
 
 Why Gitly?
 - Turn raw Git history into readable insights in seconds.

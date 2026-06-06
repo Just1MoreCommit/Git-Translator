@@ -23,10 +23,9 @@ let currentPage = 1;
 let cooldownTimer = null;
 let cooldownSeconds = 0;
 let consecutiveErrors = 0;
-let maxCommits = 100; // dynamically set per repo, capped at 500
+let maxCommits = 500; // fixed max slider value
 const COMMITS_PER_PAGE = 100;
 const COOLDOWN_DURATION = 10;
-const MAX_FETCHABLE_COMMITS = 500;
 
 // Slider elements
 const slider = document.querySelector('.dual-slider');
@@ -35,8 +34,8 @@ const handle = document.querySelector('.dual-slider-handle');
 const rangeStatus = document.getElementById('range-status');
 
 function getCommitCountFromSlider() {
-  // Map sliderPos (0-1) to commit count (10 up to maxCommits)
-  return Math.max(10, Math.round(10 + (sliderPos * (maxCommits - 10))));
+  // Map sliderPos (0-1) to commit count (10 to 500)
+  return Math.max(10, Math.round(10 + (sliderPos * 490)));
 }
 
 function updateSliderUI() {
@@ -54,13 +53,7 @@ function updateSliderUI() {
 
 function updateSliderLabel() {
   const count = getCommitCountFromSlider();
-  const label = document.getElementById('range-start-label');
-  if (maxCommits === 100) {
-    // Default state — haven't analyzed a repo yet
-    label.textContent = `Analysis Depth: ${count} commits`;
-  } else {
-    label.textContent = `Analysis Depth: ${count} / ${maxCommits} commits`;
-  }
+  document.getElementById('range-start-label').textContent = `Analysis Depth: ${count} commits`;
 }
 
 function getSliderPos(e) {
@@ -433,21 +426,6 @@ function renderSummary(result) {
   runTypewriter(p);
 }
 
-async function fetchTotalCommits(baseUrl) {
-  const result = await safeFetch(`${baseUrl}/commits?per_page=1`, 'totalCount');
-  if (!result.ok || !result.headers) return 100;
-  
-  const link = result.headers.get('Link');
-  if (link) {
-    const pages = [...link.matchAll(/page=(\d+)/g)];
-    if (pages.length > 0) {
-      return parseInt(pages[pages.length - 1][1]);
-    }
-  }
-  // Fallback: repo has 0 or 1 commits, or Link header blocked
-  return 100;
-}
-
 async function fetchCommitsPaginated(baseUrl, count) {
   const all = [];
   let page = 1;
@@ -512,23 +490,13 @@ document.getElementById('decode').addEventListener('click', async () => {
     return;
   }
   const cleanRepo = repo.replace('.git', '');
+  const commitCount = getCommitCountFromSlider();
+  console.log(`Decoding ${owner}/${cleanRepo} (fetching ${commitCount} commits)`);
+
   startCooldown();
   showLoading('Decoding Repository...');
 
   const base = `https://api.github.com/repos/${owner}/${cleanRepo}`;
-
-  // Phase 1: fetch repo metadata to get total commit count for dynamic slider
-  showLoading('Reading Repository Metadata...');
-  const totalCount = await fetchTotalCommits(base);
-  maxCommits = Math.min(totalCount, MAX_FETCHABLE_COMMITS);
-  // Update slider so user can see the actual range
-  updateSliderLabel();
-
-  const commitCount = getCommitCountFromSlider();
-  console.log(`Decoding ${owner}/${cleanRepo} (fetching ${commitCount} of ${totalCount} commits)`);
-
-  // Phase 2: fetch commits (paginated) + other repo data in parallel
-  showLoading(`Fetching ${commitCount} commits...`);
   const [commits, meta, lang, contrib, tags, activity] = await Promise.all([
     fetchCommitsPaginated(base, commitCount),
     safeFetch(`${base}`, 'meta'),
@@ -556,11 +524,8 @@ document.getElementById('decode').addEventListener('click', async () => {
 
   allCommits = commits.data;
 
-  // Total commits for display (actual total, not capped)
-  const totalCommitCount = totalCount;
-
   // Update Protocol Summary
-  document.getElementById('total-commits').textContent = totalCommitCount;
+  document.getElementById('total-commits').textContent = allCommits.length;
   document.getElementById('authors-count').textContent = (contrib.ok && contrib.data.length) || '--';
   document.getElementById('latest-tag').textContent = (tags.ok && tags.data[0]?.name) || 'N/A';
 
