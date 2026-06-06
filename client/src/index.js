@@ -25,6 +25,7 @@ let consecutiveErrors = 0;
 let maxCommits = 500; // fixed max slider value
 let currentOwner = '';
 let currentRepo = '';
+let defaultBranch = '';
 const COMMITS_PER_PAGE = 100;
 const COOLDOWN_DURATION = 10;
 
@@ -356,6 +357,32 @@ function truncate(str, maxWords = 10) {
   const words = str.replace(/\.$/, '').split(/\s+/);
   if (words.length <= maxWords) return str;
   return words.slice(0, maxWords).join(' ') + '…';
+}
+
+function relativeTime(dateStr) {
+  const then = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now - then) / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  const diffMo = Math.floor(diffDay / 30);
+  if (diffMo < 12) return `${diffMo}mo ago`;
+  return `${Math.floor(diffDay / 365)}y ago`;
+}
+
+async function fetchWithConcurrency(items, concurrency, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
 }
 
 function getCommitTypeEmoji(message) {
@@ -809,6 +836,7 @@ document.getElementById('decode').addEventListener('click', async () => {
     document.getElementById('repo-name').textContent = meta.data.full_name || `${owner}/${cleanRepo}`;
     document.getElementById('repo-stars').textContent = `★ ${formatNumber(meta.data.stargazers_count || 0)}`;
     document.getElementById('repo-forks').textContent = `⑂ ${formatNumber(meta.data.forks_count || 0)}`;
+    defaultBranch = meta.data.default_branch || '';
   }
 
   // Update Languages
@@ -1099,46 +1127,100 @@ async function fetchAndRenderBranches() {
     branchesCount.textContent = '0 branches';
     return;
   }
-  
+
   branchesList.innerHTML = '<div class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">Loading branches...</div>';
-  
+
   const base = `https://api.github.com/repos/${currentOwner}/${currentRepo}`;
   const result = await safeFetch(`${base}/branches?per_page=100`, 'branches');
-  
+
   if (!result.ok) {
     branchesList.innerHTML = '<div class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">Failed to load branches</div>';
     return;
   }
-  
+
   const branches = result.data;
   branchesCount.textContent = `${branches.length} branch${branches.length !== 1 ? 'es' : ''}`;
-  
+
+  // Fetch last commit for each branch with concurrency limit
+  const branchDetails = await fetchWithConcurrency(branches, 5, async (branch) => {
+    const commitRes = await safeFetch(`${base}/commits?sha=${encodeURIComponent(branch.name)}&per_page=1`, 'branch-commit');
+    return { branch, commitRes };
+  });
+
   while (branchesList.firstChild) branchesList.removeChild(branchesList.firstChild);
-  
-  branches.forEach(branch => {
+
+  branchDetails.forEach(({ branch, commitRes }) => {
+    const isDefault = branch.name === defaultBranch;
+    const lastCommit = (commitRes.ok && commitRes.data && commitRes.data[0]) ? commitRes.data[0] : null;
+    const commitMsg = lastCommit ? lastCommit.commit.message : '';
+    const { summary } = generateCommitSummary(commitMsg);
+    const authorName = lastCommit ? lastCommit.commit.author.name : '';
+    const authorDate = lastCommit ? lastCommit.commit.author.date : '';
+
     const row = document.createElement('div');
-    row.className = 'commit-row bg-[#050505] w-full flex flex-row items-center justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer';
-    
+    row.className = 'commit-row bg-[#050505] w-full flex flex-col p-4 gap-2 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer';
+
+    // Top row: name + badges + time
+    const topRow = document.createElement('div');
+    topRow.className = 'flex flex-row items-center justify-between gap-3';
+
     const left = document.createElement('div');
-    left.className = 'flex items-center gap-3';
-    
+    left.className = 'flex items-center gap-2 min-w-0';
+
     const dot = document.createElement('span');
-    dot.className = 'w-2 h-2 rounded-full bg-[#7c3aed]';
+    dot.className = `w-2 h-2 rounded-full flex-shrink-0 ${isDefault ? 'bg-[#10b981]' : 'bg-[#7c3aed]'}`;
     left.appendChild(dot);
-    
+
     const name = document.createElement('span');
-    name.className = 'text-sm font-mono text-white';
+    name.className = 'text-sm font-mono text-white truncate';
     name.textContent = branch.name;
     left.appendChild(name);
-    
-    if (branch.protected) {
-      const badge = document.createElement('span');
-      badge.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#7c3aed]20 text-[#7c3aed]';
-      badge.textContent = 'protected';
-      left.appendChild(badge);
+
+    if (isDefault) {
+      const defBadge = document.createElement('span');
+      defBadge.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#10b981]20 text-[#10b981] flex-shrink-0';
+      defBadge.textContent = 'default';
+      left.appendChild(defBadge);
     }
-    
-    row.appendChild(left);
+
+    if (branch.protected) {
+      const protBadge = document.createElement('span');
+      protBadge.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#7c3aed]20 text-[#7c3aed] flex-shrink-0';
+      protBadge.textContent = 'protected';
+      left.appendChild(protBadge);
+    }
+
+    topRow.appendChild(left);
+
+    if (authorDate) {
+      const time = document.createElement('span');
+      time.className = 'text-[10px] font-mono text-gray-500 flex-shrink-0';
+      time.textContent = relativeTime(authorDate);
+      topRow.appendChild(time);
+    }
+
+    row.appendChild(topRow);
+
+    // Bottom row: last commit summary + author
+    if (summary || authorName) {
+      const bottomRow = document.createElement('div');
+      bottomRow.className = 'flex flex-row items-center justify-between gap-3 pl-4 border-l border-[#1c1c1c] ml-1';
+
+      const msgSpan = document.createElement('span');
+      msgSpan.className = 'text-xs font-mono text-gray-400 truncate';
+      msgSpan.textContent = summary || 'No recent commit data';
+      bottomRow.appendChild(msgSpan);
+
+      if (authorName) {
+        const authSpan = document.createElement('span');
+        authSpan.className = 'text-[10px] font-mono text-gray-600 flex-shrink-0';
+        authSpan.textContent = authorName;
+        bottomRow.appendChild(authSpan);
+      }
+
+      row.appendChild(bottomRow);
+    }
+
     branchesList.appendChild(row);
   });
 }
