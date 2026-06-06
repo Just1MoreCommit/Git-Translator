@@ -13,7 +13,7 @@ const decodeBtn = document.getElementById('decode');
 
 // Backend API URL — hardcoded for now
 // TODO: Make this configurable (env var or config file)
-const API_BASE = 'https://git-translator-production.up.railway.app';
+const API_BASE = 'https://git-translator-production-5992.up.railway.app';
 
 // State
 let allCommits = [];
