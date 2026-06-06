@@ -82,6 +82,9 @@ app.use('/api/github', async (req, res) => {
     return res.status(500).json({ error: 'Server configuration error' });
   }
   
+  // Log token prefix (safe) for debugging on Railway
+  console.log(`[Proxy] Using GITHUB_TOKEN prefix: ${githubToken.substring(0, 4)}...`);
+  
   const githubPath = req.path.substring(1);
   const queryString = req.url.split('?')[1] || '';
   
@@ -113,7 +116,7 @@ app.use('/api/github', async (req, res) => {
   try {
     const response = await fetch(githubUrl, {
       headers: {
-        'Authorization': `token ${githubToken}`,
+        'Authorization': `Bearer ${githubToken}`,
         'User-Agent': 'Gitly-App',
         'Accept': 'application/vnd.github.v3+json'
       }
