@@ -27,7 +27,7 @@ function isCacheValid(timestamp) {
 
 // GitHub Proxy Route
 // This route acts as a proxy to GitHub API, adding authentication
-app.get('/api/github/*', async (req, res) => {
+app.use('/api/github', async (req, res) => {
   const githubToken = process.env.GITHUB_TOKEN;
   
   if (!githubToken) {
@@ -35,7 +35,7 @@ app.get('/api/github/*', async (req, res) => {
   }
   
   // Build the full GitHub URL from the request
-  const githubPath = req.params[0];
+  const githubPath = req.path.substring(1);
   const queryString = req.url.split('?')[1] || '';
   const githubUrl = `https://api.github.com/${githubPath}${queryString ? '?' + queryString : ''}`;
   
