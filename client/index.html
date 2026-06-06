@@ -89,7 +89,7 @@
         </div>
 
         <!-- Middle Column -->
-        <div id="mid-col" class="flex-1 p-6 flex flex-col gap-6">
+        <div id="mid-col" class="flex-1 p-6 flex flex-col gap-6 overflow-x-hidden min-w-0">
 
             <!-- Laboratory Card (Input) -->
             <div class="bg-white p-6 text-[#050505] w-full border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
@@ -107,8 +107,8 @@
 
                 <div class="flex flex-col gap-3">
                     <div class="flex justify-between text-[10px] font-mono text-gray-500 uppercase tracking-wider">
-                        <span>Commit_Range_Start: 0x4f2a</span>
-                        <span>Commit_Range_End: HEAD</span>
+                        <span id="range-start-label">Commit_Range_Start: 0x4f2a</span>
+                        <span id="range-end-label">Commit_Range_End: HEAD</span>
                     </div>
 
                     <!-- Custom Dual Slider -->
@@ -136,17 +136,17 @@
 
                     <div class="flex flex-col justify-center gap-1">
                         <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Total_Commits</p>
-                        <p class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">452</p>
+                        <p id="total-commits" class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">--</p>
                     </div>
 
                     <div class="flex flex-col justify-center gap-1">
                         <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Authors</p>
-                        <p class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">12</p>
+                        <p id="authors-count" class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">--</p>
                     </div>
 
                     <div class="flex flex-col justify-center gap-1">
                         <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Latest_Tag</p>
-                        <p class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">v2.4.0</p>
+                        <p id="latest-tag" class="text-[#7c3aed] text-3xl font-bold font-mono leading-none">--</p>
                     </div>
 
                 </div>
@@ -164,72 +164,26 @@
             <!-- Decoding Stream Header -->
             <div class="flex justify-between items-center py-1 border-b border-[#1c1c1c]">
                 <p class="font-mono uppercase tracking-widest text-xs text-white">Decoding_Stream</p>
-                <p class="font-mono uppercase tracking-widest text-xs text-gray-500">Logs: 3,147 entries</p>
+                <p id="logs-count" class="font-mono uppercase tracking-widest text-xs text-gray-500">Logs: -- entries</p>
             </div>
 
             <!-- Commit Table -->
             <div id="table" class="w-full flex flex-col gap-px bg-[#1c1c1c] relative z-10 border border-[#1c1c1c]">
-
-                <!-- Row 1 -->
-                <div class="commit-row bg-[#050505] w-full flex flex-row items-start justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer">
-
-                    <p class="font-mono text-xs text-[#7c3aed] uppercase tracking-wider min-w-[70px] pt-0.5">#4f2a1c</p>
-
-                    <div class="flex-1 flex flex-col gap-1 min-w-0">
-                        <div class="flex flex-row items-center gap-3">
-                            <span class="text-[10px] font-mono text-[#7c3aed] uppercase tracking-wider font-bold">Core_Ref</span>
-                            <p class="text-sm font-sans text-white truncate">feat: implement asynchronous stream processing logic</p>
-                        </div>
-                        <p class="text-xs font-mono text-gray-500 truncate">Modified 14 files in /src/core/stream. Advanced buffer management optimized.</p>
-                    </div>
-
-                    <div class="flex flex-col items-end gap-1 min-w-[80px]">
-                        <p class="text-xs font-mono text-gray-500 uppercase">2m Ago</p>
-                        <p class="text-xs font-mono text-gray-400">@dev_alpha</p>
-                    </div>
-
+                <!-- Commits will be rendered here -->
+                <div id="table-placeholder" class="commit-row bg-[#050505] w-full flex flex-row items-center justify-center p-4 text-xs font-mono text-gray-500 uppercase tracking-wider">
+                    Awaiting_Input // No_Data
                 </div>
+            </div>
 
-                <!-- Row 2 -->
-                <div class="commit-row bg-[#050505] w-full flex flex-row items-start justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer">
-
-                    <p class="font-mono text-xs text-[#7c3aed] uppercase tracking-wider min-w-[70px] pt-0.5">#9b2e45</p>
-
-                    <div class="flex-1 flex flex-col gap-1 min-w-0">
-                        <div class="flex flex-row items-center gap-3">
-                            <span class="text-[10px] font-mono text-[#f59e0b] uppercase tracking-wider font-bold">Hotfix</span>
-                            <p class="text-sm font-sans text-white truncate">fix: memory leak in terminal renderer module</p>
-                        </div>
-                        <p class="text-xs font-mono text-gray-500 truncate">Critical buffer overflow found in terminal sketch loop. Patching in progress.</p>
-                    </div>
-
-                    <div class="flex flex-col items-end gap-1 min-w-[80px]">
-                        <p class="text-xs font-mono text-gray-500 uppercase">14m Ago</p>
-                        <p class="text-xs font-mono text-gray-400">@senior_eng</p>
-                    </div>
-
-                </div>
-
-                <!-- Row 3 -->
-                <div class="commit-row bg-[#050505] w-full flex flex-row items-start justify-between p-4 gap-4 border-l border-transparent hover:border-l-[#7c3aed] hover:bg-[#0e0e0e] transition-colors cursor-pointer">
-
-                    <p class="font-mono text-xs text-[#7c3aed] uppercase tracking-wider min-w-[70px] pt-0.5">#a1c3d8</p>
-
-                    <div class="flex-1 flex flex-col gap-1 min-w-0">
-                        <div class="flex flex-row items-center gap-3">
-                            <span class="text-[10px] font-mono text-[#10b981] uppercase tracking-wider font-bold">Docs</span>
-                            <p class="text-sm font-sans text-white truncate">docs: update API specification for stream endpoints</p>
-                        </div>
-                        <p class="text-xs font-mono text-gray-500 truncate">Added OpenAPI definitions and usage examples for core/stream module.</p>
-                    </div>
-
-                    <div class="flex flex-col items-end gap-1 min-w-[80px]">
-                        <p class="text-xs font-mono text-gray-500 uppercase">1h Ago</p>
-                        <p class="text-xs font-mono text-gray-400">@doc_writer</p>
-                    </div>
-
-                </div>
-
+            <!-- Pagination -->
+            <div id="pagination" class="flex justify-between items-center py-3 border-t border-[#1c1c1c] mt-2">
+                <button id="prev-page" class="text-xs font-mono text-gray-500 uppercase tracking-wider hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                    < Prev
+                </button>
+                <p id="page-info" class="text-xs font-mono text-gray-500 uppercase tracking-wider">Page 1 of 1</p>
+                <button id="next-page" class="text-xs font-mono text-gray-500 uppercase tracking-wider hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                    Next >
+                </button>
             </div>
 
 
@@ -247,13 +201,13 @@
                         <span class="text-xl">◈</span>
                     </div>
                     <div>
-                        <p class="text-sm font-bold text-white">Gitly/Core</p>
+                        <p id="repo-name" class="text-sm font-bold text-white">Gitly/Core</p>
                         <p class="text-[10px] font-mono text-gray-500">Public Repository</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4 text-[10px] font-mono text-gray-500">
-                    <span>★ 14.2k</span>
-                    <span>⑂ 2.1k</span>
+                    <span id="repo-stars">★ --</span>
+                    <span id="repo-forks">⑂ --</span>
                 </div>
             </div>
 
@@ -263,11 +217,11 @@
                     <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Language_Breakdown</p>
                     <span class="text-[9px] font-mono text-[#7c3aed] uppercase tracking-wider">Scan_Complete</span>
                 </div>
-                <div class="lang-bar mb-2">
+                <div id="lang-bar" class="lang-bar mb-2">
                     <div class="lang-fill ts" style="width:78%"></div>
                     <div class="lang-fill rust" style="width:22%"></div>
                 </div>
-                <div class="flex gap-3 text-[10px] font-mono text-gray-500">
+                <div id="lang-legend" class="flex gap-3 text-[10px] font-mono text-gray-500">
                     <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-[#7c3aed] inline-block"></span> TypeScript (78%)</span>
                     <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-[#a78bfa] inline-block"></span> Rust (22%)</span>
                 </div>
@@ -276,27 +230,13 @@
             <!-- Top Contributors -->
             <div class="border border-[#1c1c1c] p-4">
                 <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3">Top_Contributors</p>
-                <div class="flex flex-col gap-3">
+                <div id="contributors-list" class="flex flex-col gap-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <div class="w-5 h-5 bg-[#0e0e0e] border border-white/10"></div>
-                            <span class="text-xs font-mono text-white">alex_dev_0x</span>
+                            <span class="text-xs font-mono text-white">--</span>
                         </div>
-                        <span class="text-[10px] font-mono text-[#7c3aed]">842 commits</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <div class="w-5 h-5 bg-[#0e0e0e] border border-white/10"></div>
-                            <span class="text-xs font-mono text-white">sarah_ops</span>
-                        </div>
-                        <span class="text-[10px] font-mono text-[#7c3aed]">321 commits</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <div class="w-5 h-5 bg-[#0e0e0e] border border-white/10"></div>
-                            <span class="text-xs font-mono text-white">l_architect</span>
-                        </div>
-                        <span class="text-[10px] font-mono text-[#7c3aed]">198 commits</span>
+                        <span class="text-[10px] font-mono text-[#7c3aed]">-- commits</span>
                     </div>
                 </div>
             </div>
@@ -304,14 +244,14 @@
             <!-- Activity Index -->
             <div class="border border-[#1c1c1c] p-4">
                 <p class="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3">Activity_Index</p>
-                <div class="bar-chart mb-1">
-                    <div class="bar" style="height:35%"></div>
-                    <div class="bar active" style="height:80%"></div>
-                    <div class="bar" style="height:25%"></div>
-                    <div class="bar" style="height:55%"></div>
-                    <div class="bar" style="height:40%"></div>
-                    <div class="bar" style="height:65%"></div>
-                    <div class="bar" style="height:50%"></div>
+                <div id="bar-chart" class="bar-chart mb-1">
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
+                    <div class="bar" style="height:0%"></div>
                 </div>
                 <div class="flex justify-between text-[10px] font-mono text-gray-500">
                     <span>L_Week</span>

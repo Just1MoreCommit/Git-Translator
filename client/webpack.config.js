@@ -19,7 +19,8 @@ module.exports = {
     plugins: [
         new HtmlWebpackPlugin({
             template: './index.html',
-            favicon: './assets/Gitly.png'
+            favicon: './assets/Gitly.png',
+            inject: false
         })
     ]
 };
