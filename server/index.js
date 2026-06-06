@@ -176,17 +176,17 @@ app.post('/summarize', limiter, async (req, res) => {
 
 Analyze the git commit messages from "${repoName}" and produce a structured summary:
 
-## 🎯 Project Purpose
-In 1–2 sentences, infer what this project does based on commit patterns. Focus on end-user value.
+## Project Purpose
+In 1-2 sentences, infer what this project does based on commit patterns. Focus on end-user value.
 
-## 📈 Evolution Timeline
-In 2–3 sentences, describe major phases (scaffolding → buildout → polish → maintenance). Reference specific commits only at clear turning points.
+## Evolution Timeline
+In 2-3 sentences, describe major phases (scaffolding → buildout → polish → maintenance). Reference specific commits only at clear turning points.
 
-## 🔥 Recent Focus
-In 1–2 sentences, summarize active development areas right now.
+## Recent Focus
+In 1-2 sentences, summarize active development areas right now.
 
-## 🏷️ Key Themes
-List 3–5 dominant work categories as inline comma-separated tags (e.g., "UI overhaul, API integration, performance tuning").
+## Key Themes
+List 3-5 dominant work categories as inline comma-separated tags (e.g., "UI overhaul, API integration, performance tuning").
 
 Rules:
 - Be specific. Avoid generic filler like "various improvements."
@@ -195,6 +195,7 @@ Rules:
 - Keep total response under 250 words.
 - Write like a senior engineer briefing a CTO — confident, no fluff.
 - No code blocks. No bullet lists. Use inline text only.
+- NO EMOJIS anywhere in the response. Use plain text only.
 
 Commit messages (oldest → newest):
 ${commits.join('\n')}`;

@@ -560,7 +560,7 @@ function runTypewriter(el) {
   el.textContent = '';
   el.style.display = 'inline-block';
   let i = 0;
-  const speed = 15;
+  const speed = 8;
   function type() {
     if (i < text.length) {
       el.textContent += text.charAt(i);
@@ -570,18 +570,66 @@ function runTypewriter(el) {
       el.classList.add('cursor-blink');
     }
   }
-  setTimeout(type, 500);
+  setTimeout(type, 200);
 }
 
 function renderSummary(result) {
   const summaryField = document.getElementById('summaryField');
   while (summaryField.firstChild) summaryField.removeChild(summaryField.firstChild);
-  summaryField.className = 'border-l-2 border-[#7c3aed] pl-4';
-  const p = document.createElement('p');
-  p.className = 'text-xs font-mono text-gray-400 leading-relaxed typewriter-text';
-  p.textContent = result;
-  summaryField.appendChild(p);
-  runTypewriter(p);
+  summaryField.className = 'border-l-2 border-[#7c3aed] pl-4 flex flex-col gap-3';
+  
+  // Parse markdown sections by "## " headers
+  const sections = result.split(/\n##\s+/).map(s => s.trim()).filter(Boolean);
+  
+  sections.forEach((section, idx) => {
+    const lines = section.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (!lines.length) return;
+    
+    // First line is the header (may still have # prefix)
+    let headerText = lines[0].replace(/^#+\s*/, '').trim();
+    // Remove any stray emoji characters
+    headerText = headerText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+    
+    const bodyText = lines.slice(1).join(' ').trim();
+    if (!bodyText) return;
+    
+    const sectionDiv = document.createElement('div');
+    sectionDiv.className = 'flex flex-col gap-1';
+    
+    // Header
+    const header = document.createElement('h3');
+    header.className = 'text-[10px] font-mono font-bold text-[#7c3aed] uppercase tracking-widest';
+    header.textContent = headerText;
+    sectionDiv.appendChild(header);
+    
+    // Body — special handling for Key Themes
+    if (/Key Themes/i.test(headerText)) {
+      const themes = bodyText.split(/,\s*/).map(t => t.trim()).filter(t => t);
+      const pillContainer = document.createElement('div');
+      pillContainer.className = 'flex flex-wrap gap-2 mt-1';
+      
+      const themeColors = ['#7c3aed', '#a78bfa', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
+      themes.forEach((theme, i) => {
+        const pill = document.createElement('span');
+        pill.className = 'text-[10px] font-mono px-2 py-0.5 rounded border';
+        pill.style.color = themeColors[i % themeColors.length];
+        pill.style.borderColor = themeColors[i % themeColors.length] + '40';
+        pill.style.background = themeColors[i % themeColors.length] + '10';
+        pill.textContent = theme;
+        pillContainer.appendChild(pill);
+      });
+      
+      sectionDiv.appendChild(pillContainer);
+    } else {
+      const body = document.createElement('p');
+      body.className = 'text-xs font-mono text-gray-400 leading-relaxed typewriter-text';
+      body.textContent = bodyText;
+      sectionDiv.appendChild(body);
+      runTypewriter(body);
+    }
+    
+    summaryField.appendChild(sectionDiv);
+  });
 }
 
 async function fetchCommitsPaginated(baseUrl, count) {
