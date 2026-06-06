@@ -33,8 +33,8 @@ const handle = document.querySelector('.dual-slider-handle');
 const rangeStatus = document.getElementById('range-status');
 
 function getCommitCountFromSlider() {
-  // Map sliderPos (0-1) to commit count (100 down to 10)
-  return Math.max(10, Math.round(100 - (sliderPos * 90)));
+  // Map sliderPos (0-1) to commit count (10 up to 100)
+  return Math.max(10, Math.round(10 + (sliderPos * 90)));
 }
 
 function updateSliderUI() {
@@ -635,7 +635,7 @@ document.getElementById('new-analysis').addEventListener('click', () => {
     <div class="bar" style="height:0%"></div>
     <div class="bar" style="height:0%"></div>`;
   document.getElementById('logs-count').textContent = 'Logs: -- entries';
-  document.getElementById('range-start-label').textContent = 'Analysis Depth: 100 commits';
+  document.getElementById('range-start-label').textContent = 'Analysis Depth: 10 commits';
   rangeStatus.style.opacity = '0';
   pageInfo.textContent = 'Page 1 of 1';
   prevBtn.disabled = true;
