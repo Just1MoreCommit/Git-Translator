@@ -144,6 +144,20 @@ app.use('/api/github', limiter, async (req, res) => {
   }
 });
 
+async function callGemini(model, promptText, geminiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: promptText }] }]
+    })
+  });
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return { ok: res.ok, status: res.status, data, text };
+}
+
 app.post('/summarize', limiter, async (req, res) => {
   const { repoName, commits } = req.body;
   
@@ -203,23 +217,25 @@ Commit messages (oldest → newest):
 ${commits.join('\n')}`;
   
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: promptText
-          }]
-        }]
-      })
-    });
+    // PRIMARY: try gemini-2.5-flash
+    let result = await callGemini('gemini-2.5-flash', promptText, geminiKey);
+    const hasHeaders = /^##\s+/m.test(result.text);
     
-    const data = await response.json();
-    console.log(JSON.stringify(data, null, 2));
-    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    // RETRY: if HTTP failed or content lacks headers, fallback to 2.0-flash
+    if (!result.ok || result.status !== 200 || !hasHeaders) {
+      console.log(`[Summarize] 2.5-flash failed — status: ${result.status}, hasHeaders: ${hasHeaders}. Retrying with 2.0-flash...`);
+      result = await callGemini('gemini-2.0-flash', promptText, geminiKey);
+      console.log(`[Summarize] 2.0-flash result — status: ${result.status}, hasHeaders: ${/^##\s+/m.test(result.text)}`);
+    }
+    
+    if (!result.ok || result.status !== 200) {
+      console.error('[Summarize] Both models failed. Last status:', result.status);
+      return res.status(500).json({ error: 'AI summarization unavailable' });
+    }
+    
+    const summary = result.text;
     if (!summary) {
-      console.log('Full Gemini response:', JSON.stringify(data, null, 2));
+      console.log('Full Gemini response:', JSON.stringify(result.data, null, 2));
       return res.status(500).json({ error: 'Could not parse Gemini response' });
     }
     
