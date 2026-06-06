@@ -54,7 +54,13 @@ function updateSliderUI() {
 
 function updateSliderLabel() {
   const count = getCommitCountFromSlider();
-  document.getElementById('range-start-label').textContent = `Analysis Depth: ${count} commits (max: ${maxCommits})`;
+  const label = document.getElementById('range-start-label');
+  if (maxCommits === 100) {
+    // Default state — haven't analyzed a repo yet
+    label.textContent = `Analysis Depth: ${count} commits`;
+  } else {
+    label.textContent = `Analysis Depth: ${count} / ${maxCommits} commits`;
+  }
 }
 
 function getSliderPos(e) {
