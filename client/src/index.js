@@ -400,7 +400,7 @@ document.getElementById('decode').addEventListener('click', async () => {
     return;
   }
 
-  const replacedURL = repoURL.replace('https://github.com/', '');
+  const replacedURL = repoURL.replace('https://github.com/', '').replace(/\/$/, '');
   const [owner, repo] = replacedURL.split('/');
   if (!owner || !repo) {
     alert('Invalid URL format. Expected: https://github.com/owner/repo');
